@@ -1,4 +1,7 @@
+import { useState } from 'react';
+import { t } from '@monopoly/core';
 import { Board } from '../board/Board.js';
+import { Board3D } from '../board3d/Board3D.js';
 import { Sidebar } from './Sidebar.js';
 import { AuctionModal } from './AuctionModal.js';
 import { TradeReviewModal } from './TradeReviewModal.js';
@@ -10,6 +13,7 @@ interface GameProps {
 
 export function Game({ api }: GameProps) {
   const viewerId = api.viewerPlayerId;
+  const [view, setView] = useState<'2d' | '3d'>('3d');
   const isTradeRecipient = api.state.pendingTrade?.toPlayerId === viewerId;
   // In local hot-seat, viewerId equals current player, so trade review pops naturally.
   // In network mode, only the recipient sees the review modal.
@@ -17,10 +21,23 @@ export function Game({ api }: GameProps) {
     ? api.state.pendingTrade !== null
     : isTradeRecipient;
 
+  const currentPlayerId = api.state.players[api.state.currentPlayerIndex]?.id ?? null;
+
   return (
     <div className="game">
       <div className="game__board">
-        <Board state={api.state} currentPlayerId={api.state.players[api.state.currentPlayerIndex]?.id ?? null} />
+        <button
+          type="button"
+          className="game__view-toggle"
+          onClick={() => setView((v) => (v === '3d' ? '2d' : '3d'))}
+        >
+          {view === '3d' ? t('game.view2d') : t('game.view3d')}
+        </button>
+        {view === '3d' ? (
+          <Board3D state={api.state} currentPlayerId={currentPlayerId} />
+        ) : (
+          <Board state={api.state} currentPlayerId={currentPlayerId} />
+        )}
       </div>
       <div className="game__sidebar">
         <Sidebar api={api} />

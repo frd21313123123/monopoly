@@ -161,6 +161,7 @@ export type Action =
   | { type: 'turn/rollAndMove' }
   | { type: 'turn/buyCurrent' }
   | { type: 'turn/declinePurchase' }
+  | { type: 'turn/auctionCurrent' }
   | { type: 'turn/end' }
   | { type: 'manage/buyHouse'; tileIndex: TileIndex }
   | { type: 'manage/sellHouse'; tileIndex: TileIndex }

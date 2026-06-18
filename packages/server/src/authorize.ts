@@ -23,6 +23,7 @@ export function canSubmitAction(state: GameState, playerId: string, action: Acti
     case 'turn/rollAndMove':
     case 'turn/buyCurrent':
     case 'turn/declinePurchase':
+    case 'turn/auctionCurrent':
     case 'turn/end':
     case 'manage/buyHouse':
     case 'manage/sellHouse':
