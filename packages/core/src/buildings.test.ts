@@ -175,6 +175,8 @@ describe('bankruptcy clears buildings', () => {
     s = { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, position: 0 } : p)) };
     s = { ...s, rngState: landRolls(3, 0) };
     s = reduce(s, { type: 'turn/rollAndMove' });
+    expect(s.pendingDebt).not.toBeNull();
+    s = reduce(s, { type: 'debt/declareBankruptcy' });
     expect(s.players[0]!.bankrupt).toBe(true);
     // player 0 had tile 37, no buildings on it — still 0
     // No buildings should be cleared from tiles 1, 3 (those belong to creditor)

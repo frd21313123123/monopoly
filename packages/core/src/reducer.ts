@@ -55,6 +55,12 @@ export function reduce(state: GameState, action: Action): GameState {
       return declinePurchase(state);
     case 'turn/auctionCurrent':
       return auctionCurrent(state);
+    case 'turn/offerPurchase':
+      return offerPurchase(state, action.toPlayerId, action.price);
+    case 'offer/accept':
+      return offerAccept(state);
+    case 'offer/decline':
+      return offerDecline(state);
     case 'turn/end':
       return endTurn(state);
     case 'manage/buyHouse':
@@ -67,6 +73,10 @@ export function reduce(state: GameState, action: Action): GameState {
       return jailPayFine(state);
     case 'jail/useCard':
       return jailUseCard(state);
+    case 'debt/pay':
+      return payDebt(state);
+    case 'debt/declareBankruptcy':
+      return debtDeclareBankruptcy(state);
     case 'manage/mortgage':
       return mortgageTile(state, action.tileIndex);
     case 'manage/unmortgage':
@@ -111,6 +121,7 @@ function mortgageTile(state: GameState, tileIndex: TileIndex): GameState {
 
 function unmortgageTile(state: GameState, tileIndex: TileIndex): GameState {
   if (state.phase !== 'playing') return state;
+  if (state.pendingDebt) return state;
   const current = state.players[state.currentPlayerIndex];
   if (!current || current.bankrupt) return state;
   const check = canUnmortgage(state, current, tileIndex);
@@ -249,6 +260,7 @@ function tradePropose(
 ): GameState {
   if (state.phase !== 'playing') return state;
   if (state.pendingTrade) return state;
+  if (state.pendingDebt) return state;
   if (fromId === toId) return state;
   const from = state.players.find((p) => p.id === fromId);
   const to = state.players.find((p) => p.id === toId);
@@ -332,6 +344,7 @@ function tradeDecline(state: GameState): GameState {
 
 function buyHouse(state: GameState, tileIndex: TileIndex): GameState {
   if (state.phase !== 'playing') return state;
+  if (state.pendingDebt) return state;
   const current = state.players[state.currentPlayerIndex];
   if (!current || current.bankrupt) return state;
   const check = canBuyHouse(state, current, tileIndex);
@@ -357,13 +370,13 @@ function buyHouse(state: GameState, tileIndex: TileIndex): GameState {
 
 function jailRoll(state: GameState): GameState {
   if (state.phase !== 'playing') return state;
-  if (state.pendingEndTurn || state.pendingPurchase) return state;
+  if (state.pendingEndTurn || state.pendingPurchase || state.pendingDebt) return state;
   const idx = state.currentPlayerIndex;
   const current = state.players[idx];
   if (!current || current.bankrupt || !current.inJail) return state;
 
   const { roll, nextRngState } = rollDicePure(state.rngState);
-  let next: GameState = { ...state, rngState: nextRngState, lastRoll: roll };
+  let next: GameState = { ...state, rngState: nextRngState, lastRoll: roll, rollSeq: state.rollSeq + 1 };
   next = appendLogEntries(next, [
     {
       turn: state.turn,
@@ -410,6 +423,12 @@ function jailRoll(state: GameState): GameState {
       },
     ]);
     next = payOrBankrupt(next, current.id, null, JAIL_FINE);
+    // Couldn't cover the fine: pause on the debt; leaving jail + the move happen
+    // once the debt is settled (or the player declares bankruptcy).
+    if (next.pendingDebt) {
+      next = { ...next, pendingDebt: { ...next.pendingDebt, jailMoveSum: roll.sum } };
+      return { ...next, doublesThisTurn: 0 };
+    }
     const playerAfter = next.players[idx];
     if (playerAfter && !playerAfter.bankrupt) {
       const freed: Player = { ...playerAfter, inJail: false, jailTurns: 0 };
@@ -424,7 +443,7 @@ function jailRoll(state: GameState): GameState {
 
 function jailPayFine(state: GameState): GameState {
   if (state.phase !== 'playing') return state;
-  if (state.pendingEndTurn || state.pendingPurchase) return state;
+  if (state.pendingEndTurn || state.pendingPurchase || state.pendingDebt) return state;
   const idx = state.currentPlayerIndex;
   const current = state.players[idx];
   if (!current || current.bankrupt || !current.inJail) return state;
@@ -450,7 +469,7 @@ function jailPayFine(state: GameState): GameState {
 
 function jailUseCard(state: GameState): GameState {
   if (state.phase !== 'playing') return state;
-  if (state.pendingEndTurn || state.pendingPurchase) return state;
+  if (state.pendingEndTurn || state.pendingPurchase || state.pendingDebt) return state;
   const idx = state.currentPlayerIndex;
   const current = state.players[idx];
   if (!current || current.bankrupt || !current.inJail) return state;
@@ -471,6 +490,68 @@ function jailUseCard(state: GameState): GameState {
       params: { name: current.name },
     },
   ]);
+  return next;
+}
+
+function payDebt(state: GameState): GameState {
+  if (state.phase !== 'playing') return state;
+  const debt = state.pendingDebt;
+  if (!debt) return state;
+  const idx = state.players.findIndex((p) => p.id === debt.debtorId);
+  const debtor = state.players[idx];
+  if (!debtor || debtor.bankrupt) return state;
+  if (debtor.money < debt.amount) return state;
+
+  // Pay the creditor (or the bank) and clear the debt.
+  let players = replaceAt(state.players, idx, { ...debtor, money: debtor.money - debt.amount });
+  if (debt.creditorId) {
+    const creditorIdx = players.findIndex((p) => p.id === debt.creditorId);
+    const creditor = players[creditorIdx];
+    if (creditor) {
+      players = replaceAt(players, creditorIdx, { ...creditor, money: creditor.money + debt.amount });
+    }
+  }
+  let next: GameState = { ...state, players, pendingDebt: null };
+  next = appendLogEntries(next, [
+    {
+      turn: state.turn,
+      playerId: debt.debtorId,
+      messageKey: 'log.debtPaid',
+      params: {
+        name: debtor.name,
+        amount: debt.amount,
+        creditor: debt.creditorId
+          ? players.find((p) => p.id === debt.creditorId)?.name ?? '—'
+          : 'банк',
+      },
+    },
+  ]);
+
+  // The forced jail fine: once paid, leave jail and complete the move.
+  if (debt.jailMoveSum !== undefined) {
+    const freedIdx = next.players.findIndex((p) => p.id === debt.debtorId);
+    const freed = next.players[freedIdx];
+    if (freed) {
+      next = {
+        ...next,
+        players: replaceAt(next.players, freedIdx, { ...freed, inJail: false, jailTurns: 0 }),
+      };
+      next = moveAfterJail(next, debt.debtorId, debt.jailMoveSum);
+    }
+  }
+  return next;
+}
+
+function debtDeclareBankruptcy(state: GameState): GameState {
+  if (state.phase !== 'playing') return state;
+  const debt = state.pendingDebt;
+  if (!debt) return state;
+  let next = declareBankruptcy(state, debt.debtorId, debt.creditorId, debt.amount);
+  next = { ...next, pendingDebt: null };
+  // If the game isn't over, advance past the now-bankrupt player.
+  if (next.phase === 'playing') {
+    next = endTurn({ ...next, pendingEndTurn: true });
+  }
   return next;
 }
 
@@ -563,6 +644,7 @@ function startGame(state: GameState): GameState {
       messageKey: 'log.gameStarted',
       params: { count: state.players.length },
     }),
+    logSeq: state.logSeq + 1,
   };
 }
 
@@ -570,6 +652,8 @@ function rollAndMove(state: GameState): GameState {
   if (state.phase !== 'playing') return state;
   if (state.pendingEndTurn) return state;
   if (state.pendingPurchase) return state;
+  if (state.pendingOffer) return state;
+  if (state.pendingDebt) return state;
 
   const current = state.players[state.currentPlayerIndex];
   if (!current || current.bankrupt || current.inJail) return state;
@@ -589,6 +673,7 @@ function rollAndMove(state: GameState): GameState {
       players: replaceAt(state.players, state.currentPlayerIndex, jailed),
       rngState: nextRngState,
       lastRoll: roll,
+      rollSeq: state.rollSeq + 1,
       doublesThisTurn: 0,
       pendingEndTurn: true,
     };
@@ -613,6 +698,7 @@ function rollAndMove(state: GameState): GameState {
     players: replaceAt(state.players, state.currentPlayerIndex, movedPlayer),
     rngState: nextRngState,
     lastRoll: roll,
+    rollSeq: state.rollSeq + 1,
     doublesThisTurn: roll.isDouble ? state.doublesThisTurn + 1 : 0,
     pendingEndTurn: false,
   };
@@ -873,12 +959,99 @@ function auctionCurrent(state: GameState): GameState {
   return next;
 }
 
+function offerPurchase(state: GameState, toPlayerId: string, price: number): GameState {
+  if (state.phase !== 'playing') return state;
+  if (!state.pendingPurchase) return state;
+  if (state.pendingOffer) return state;
+  const current = state.players[state.currentPlayerIndex];
+  if (!current || current.bankrupt) return state;
+  if (toPlayerId === current.id) return state;
+  const to = state.players.find((p) => p.id === toPlayerId);
+  if (!to || to.bankrupt) return state;
+  if (!Number.isInteger(price) || price <= 0) return state;
+
+  const { tileIndex, price: originalPrice } = state.pendingPurchase;
+  const tile = getTile(tileIndex);
+  return appendLogEntries(
+    {
+      ...state,
+      pendingPurchase: null,
+      pendingOffer: { tileIndex, fromPlayerId: current.id, toPlayerId, price, originalPrice },
+    },
+    [
+      {
+        turn: state.turn,
+        playerId: current.id,
+        messageKey: 'log.offerProposed',
+        params: { from: current.name, to: to.name, tile: tile.nameKey, price },
+      },
+    ],
+  );
+}
+
+function offerAccept(state: GameState): GameState {
+  if (state.phase !== 'playing') return state;
+  const offer = state.pendingOffer;
+  if (!offer) return state;
+  const buyerIdx = state.players.findIndex((p) => p.id === offer.toPlayerId);
+  const buyer = state.players[buyerIdx];
+  if (!buyer || buyer.bankrupt) return state;
+  if (buyer.money < offer.price) return state;
+  const sellerIdx = state.players.findIndex((p) => p.id === offer.fromPlayerId);
+  if (sellerIdx < 0) return state;
+
+  // Buyer pays the named price to the offering (current) player and gets the tile.
+  let players = replaceAt(state.players, buyerIdx, {
+    ...buyer,
+    money: buyer.money - offer.price,
+    ownedTiles: [...buyer.ownedTiles, offer.tileIndex],
+  });
+  const seller = players[sellerIdx]!;
+  players = replaceAt(players, sellerIdx, { ...seller, money: seller.money + offer.price });
+
+  const tile = getTile(offer.tileIndex);
+  return appendLogEntries({ ...state, players, pendingOffer: null }, [
+    {
+      turn: state.turn,
+      playerId: offer.toPlayerId,
+      messageKey: 'log.offerAccepted',
+      params: { to: buyer.name, from: seller.name, tile: tile.nameKey, price: offer.price },
+    },
+  ]);
+}
+
+function offerDecline(state: GameState): GameState {
+  if (state.phase !== 'playing') return state;
+  const offer = state.pendingOffer;
+  if (!offer) return state;
+  const to = state.players.find((p) => p.id === offer.toPlayerId);
+  const tile = getTile(offer.tileIndex);
+  // Hand the original purchase decision back to the current player.
+  return appendLogEntries(
+    {
+      ...state,
+      pendingOffer: null,
+      pendingPurchase: { tileIndex: offer.tileIndex, price: offer.originalPrice },
+    },
+    [
+      {
+        turn: state.turn,
+        playerId: offer.toPlayerId,
+        messageKey: 'log.offerDeclined',
+        params: { to: to?.name ?? offer.toPlayerId, tile: tile.nameKey },
+      },
+    ],
+  );
+}
+
 function endTurn(state: GameState): GameState {
   if (state.phase !== 'playing') return state;
   if (!state.pendingEndTurn) return state;
   if (state.pendingPurchase) return state;
+  if (state.pendingOffer) return state;
   if (state.pendingAuction) return state;
   if (state.pendingTrade) return state;
+  if (state.pendingDebt) return state;
 
   const total = state.players.length;
   let nextIndex = (state.currentPlayerIndex + 1) % total;
@@ -920,6 +1093,18 @@ function payOrBankrupt(
       }
     }
     return { ...state, players };
+  }
+
+  // The current player can't cover it — pause and let them raise funds (sell /
+  // mortgage) or declare bankruptcy from the debt modal. Non-current payers (e.g.
+  // a "pay each player" card hitting someone else) still bankrupt immediately,
+  // and a second simultaneous debt also falls back to instant bankruptcy.
+  const isCurrentPlayer = state.players[state.currentPlayerIndex]?.id === payerId;
+  if (isCurrentPlayer && !state.pendingDebt) {
+    return {
+      ...state,
+      pendingDebt: { debtorId: payerId, creditorId: payeeId, amount },
+    };
   }
 
   return declareBankruptcy(state, payerId, payeeId, amount);
@@ -1014,5 +1199,5 @@ function appendLog(log: readonly LogEntry[], ...entries: LogEntry[]): readonly L
 }
 
 function appendLogEntries(state: GameState, entries: readonly LogEntry[]): GameState {
-  return { ...state, log: appendLog(state.log, ...entries) };
+  return { ...state, log: appendLog(state.log, ...entries), logSeq: state.logSeq + entries.length };
 }

@@ -49,8 +49,14 @@ export function Board3D({ state, currentPlayerId = null }: Board3DProps) {
         />
         <RotatingTable targetAngle={targetAngle}>
           <BoardSurface state={state} />
-          {state && <Tokens3D players={state.players} currentPlayerId={currentPlayerId} />}
-          <Dice3D roll={state?.lastRoll ?? null} />
+          {state && (
+            <Tokens3D
+              players={state.players}
+              currentPlayerId={currentPlayerId}
+              rollSeq={state.rollSeq}
+            />
+          )}
+          <Dice3D roll={state?.lastRoll ?? null} rollSeq={state?.rollSeq ?? 0} />
           <Cards3D state={state} />
         </RotatingTable>
 

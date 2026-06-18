@@ -4,7 +4,6 @@ import { Tile } from './Tile.js';
 import { Tokens } from './Tokens.js';
 import { Ownership } from './Ownership.js';
 import { Buildings } from './Buildings.js';
-import { CardOverlay } from './CardOverlay.js';
 
 interface BoardProps {
   state?: GameState;
@@ -40,9 +39,14 @@ export function Board({ state, currentPlayerId = null }: BoardProps) {
         </text>
         {state && <Ownership state={state} />}
         {state && <Buildings state={state} />}
-        {state && <Tokens players={state.players} currentPlayerId={currentPlayerId} />}
+        {state && (
+          <Tokens
+            players={state.players}
+            currentPlayerId={currentPlayerId}
+            rollSeq={state.rollSeq}
+          />
+        )}
       </svg>
-      <CardOverlay state={state} />
     </div>
   );
 }
