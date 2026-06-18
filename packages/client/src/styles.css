@@ -364,15 +364,155 @@ button {
   justify-content: center;
   align-items: center;
   min-width: 0;
+  position: relative;
 }
 
-.board {
+.game__view-toggle {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 5;
+  padding: 6px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1d22;
+  background: #fff200;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.game__view-toggle:hover {
+  background: #fff84d;
+}
+
+.board3d {
+  position: relative;
   width: min(85vh, 100%);
   height: min(85vh, 100%);
   max-width: 100%;
+  aspect-ratio: 1 / 1;
+  border: 2px solid #1a1d22;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.board3d__canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+.board3d__rotate {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  display: flex;
+  gap: 8px;
+  z-index: 5;
+}
+
+.board3d__rotate-btn {
+  width: 44px;
+  height: 44px;
+  font-size: 22px;
+  line-height: 1;
+  color: #1a1d22;
+  background: rgba(255, 255, 255, 0.92);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.board3d__rotate-btn:hover {
+  background: #fff;
+}
+
+.board-wrap {
+  position: relative;
+  width: min(85vh, 100%);
+  height: min(85vh, 100%);
+  max-width: 100%;
+  aspect-ratio: 1 / 1;
+}
+
+.board {
+  width: 100%;
+  height: 100%;
   background: #cfe6d2;
   border: 2px solid #1a1d22;
   border-radius: 4px;
+  display: block;
+}
+
+.card-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.card-pop {
+  width: 56%;
+  max-width: 340px;
+  background: #fbf8ef;
+  border-radius: 14px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  border: 3px solid var(--card-color, #e8943a);
+  transform-origin: center;
+  animation: card-in 0.5s cubic-bezier(0.18, 0.9, 0.3, 1.2) both;
+}
+
+.card-pop--leaving {
+  animation: card-out 0.45s ease-in forwards;
+}
+
+.card-pop__header {
+  background: var(--card-color, #e8943a);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-align: center;
+  padding: 10px 12px;
+}
+
+.card-pop__body {
+  color: #1a1d22;
+  font-size: 18px;
+  line-height: 1.4;
+  text-align: center;
+  padding: 22px 20px 26px;
+  font-weight: 600;
+}
+
+@keyframes card-in {
+  0% {
+    opacity: 0;
+    transform: translateY(40px) scale(0.4) rotate(-6deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes card-out {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.7);
+  }
 }
 
 .game__sidebar {
@@ -435,6 +575,43 @@ button {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
+.die--rolling {
+  animation: die-tumble 0.32s linear infinite;
+}
+
+@keyframes die-tumble {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.12);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+.die__pips {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  width: 70%;
+  height: 70%;
+}
+
+.die__cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.die__pip {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #1a1d22;
+}
+
 .sidebar__action--end {
   background: #2a8f4a;
 }
@@ -449,6 +626,14 @@ button {
 
 .sidebar__action--decline:hover:not(:disabled) {
   background: #7d828b;
+}
+
+.sidebar__action--auction {
+  background: #b07a1e;
+}
+
+.sidebar__action--auction:hover:not(:disabled) {
+  background: #c98e2a;
 }
 
 .sidebar__purchase {
@@ -470,7 +655,7 @@ button {
 
 .sidebar__purchase-buttons {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 8px;
 }
 

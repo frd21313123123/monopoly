@@ -91,11 +91,20 @@ describe('mortgage', () => {
 });
 
 describe('auction', () => {
-  it('declining purchase starts an auction', () => {
+  it('declining purchase does NOT start an auction', () => {
     let s = setup();
     s = landAt(s, 5);
     expect(s.pendingPurchase).not.toBeNull();
     s = reduce(s, { type: 'turn/declinePurchase' });
+    expect(s.pendingPurchase).toBeNull();
+    expect(s.pendingAuction).toBeNull();
+  });
+
+  it('auctionCurrent starts an auction for the current tile', () => {
+    let s = setup();
+    s = landAt(s, 5);
+    expect(s.pendingPurchase).not.toBeNull();
+    s = reduce(s, { type: 'turn/auctionCurrent' });
     expect(s.pendingPurchase).toBeNull();
     expect(s.pendingAuction).not.toBeNull();
     expect(s.pendingAuction!.tileIndex).toBe(5);
@@ -104,7 +113,7 @@ describe('auction', () => {
   it('bid raises currentBid and rotates turn', () => {
     let s = setup();
     s = landAt(s, 5);
-    s = reduce(s, { type: 'turn/declinePurchase' });
+    s = reduce(s, { type: 'turn/auctionCurrent' });
     const firstBidder = s.pendingAuction!.activePlayerIds[0]!;
     s = reduce(s, { type: 'auction/bid', playerId: firstBidder, amount: 50 });
     expect(s.pendingAuction!.currentBid).toBe(50);
@@ -114,7 +123,7 @@ describe('auction', () => {
   it('bids below min increment are rejected', () => {
     let s = setup();
     s = landAt(s, 5);
-    s = reduce(s, { type: 'turn/declinePurchase' });
+    s = reduce(s, { type: 'turn/auctionCurrent' });
     const firstBidder = s.pendingAuction!.activePlayerIds[0]!;
     s = reduce(s, { type: 'auction/bid', playerId: firstBidder, amount: 50 });
     const before = s;
@@ -127,7 +136,7 @@ describe('auction', () => {
   it('all-pass with no bid ends auction without winner', () => {
     let s = setup();
     s = landAt(s, 5);
-    s = reduce(s, { type: 'turn/declinePurchase' });
+    s = reduce(s, { type: 'turn/auctionCurrent' });
     const a = s.pendingAuction!.activePlayerIds;
     for (const pid of a) {
       s = reduce(s, { type: 'auction/pass', playerId: pid });
@@ -139,7 +148,7 @@ describe('auction', () => {
   it('single high bidder wins and pays', () => {
     let s = setupThree();
     s = landAt(s, 5);
-    s = reduce(s, { type: 'turn/declinePurchase' });
+    s = reduce(s, { type: 'turn/auctionCurrent' });
     const auction = s.pendingAuction!;
     const bidderId = auction.activePlayerIds[0]!;
     s = reduce(s, { type: 'auction/bid', playerId: bidderId, amount: 100 });

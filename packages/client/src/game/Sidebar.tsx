@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { getTile, getToken, JAIL_FINE, MAX_JAIL_TURNS, t, type Player } from '@monopoly/core';
+import { useEffect, useRef, useState } from 'react';
+import { getTile, getToken, JAIL_FINE, MAX_JAIL_TURNS, t, type DiceRoll, type Player } from '@monopoly/core';
 import type { GameApi } from './useGame.js';
 import { Properties } from './Properties.js';
 import { TradeModal } from './TradeModal.js';
@@ -62,11 +62,12 @@ export function Sidebar({ api }: SidebarProps) {
               canAfford={current.money >= state.pendingPurchase.price}
               onBuy={() => dispatch({ type: 'turn/buyCurrent' })}
               onDecline={() => dispatch({ type: 'turn/declinePurchase' })}
+              onAuction={() => dispatch({ type: 'turn/auctionCurrent' })}
             />
           )}
 
           <section className="sidebar__section sidebar__dice">
-            <Dice a={state.lastRoll?.a ?? null} b={state.lastRoll?.b ?? null} />
+            <Dice roll={state.lastRoll} />
             {!isMyTurn && (
               <p className="sidebar__waiting">Ход игрока {current?.name}…</p>
             )}
@@ -142,9 +143,10 @@ interface PurchasePromptProps {
   canAfford: boolean;
   onBuy: () => void;
   onDecline: () => void;
+  onAuction: () => void;
 }
 
-function PurchasePrompt({ tileIndex, price, canAfford, onBuy, onDecline }: PurchasePromptProps) {
+function PurchasePrompt({ tileIndex, price, canAfford, onBuy, onDecline, onAuction }: PurchasePromptProps) {
   const tile = getTile(tileIndex);
   return (
     <section className="sidebar__section sidebar__purchase">
@@ -158,6 +160,13 @@ function PurchasePrompt({ tileIndex, price, canAfford, onBuy, onDecline }: Purch
           disabled={!canAfford}
         >
           {t('game.buy', { price })}
+        </button>
+        <button
+          type="button"
+          className="sidebar__action sidebar__action--auction"
+          onClick={onAuction}
+        >
+          {t('game.auctionStart')}
         </button>
         <button
           type="button"
@@ -213,19 +222,70 @@ function JailControls({
   );
 }
 
-function Dice({ a, b }: { a: number | null; b: number | null }) {
+const ROLL_MS = 700;
+
+function Dice({ roll }: { roll: DiceRoll | null }) {
+  const [display, setDisplay] = useState<{ a: number; b: number } | null>(
+    roll ? { a: roll.a, b: roll.b } : null,
+  );
+  const [rolling, setRolling] = useState(false);
+  const prevRoll = useRef<DiceRoll | null>(roll);
+
+  useEffect(() => {
+    if (!roll || roll === prevRoll.current) return;
+    prevRoll.current = roll;
+    setRolling(true);
+    // Flicker random faces, then settle on the real values.
+    const flicker = window.setInterval(() => {
+      setDisplay({ a: 1 + Math.floor(Math.random() * 6), b: 1 + Math.floor(Math.random() * 6) });
+    }, 80);
+    const stop = window.setTimeout(() => {
+      window.clearInterval(flicker);
+      setDisplay({ a: roll.a, b: roll.b });
+      setRolling(false);
+    }, ROLL_MS);
+    return () => {
+      window.clearInterval(flicker);
+      window.clearTimeout(stop);
+    };
+  }, [roll]);
+
   return (
     <div className="dice">
-      <DieFace value={a} />
-      <DieFace value={b} />
+      <DieFace value={display?.a ?? null} rolling={rolling} />
+      <DieFace value={display?.b ?? null} rolling={rolling} />
     </div>
   );
 }
 
-function DieFace({ value }: { value: number | null }) {
+// Pip positions on a 3×3 grid (cell indices 0-8, row-major).
+const PIP_CELLS: Record<number, number[]> = {
+  1: [4],
+  2: [0, 8],
+  3: [0, 4, 8],
+  4: [0, 2, 6, 8],
+  5: [0, 2, 4, 6, 8],
+  6: [0, 2, 3, 5, 6, 8],
+};
+
+function DieFace({ value, rolling }: { value: number | null; rolling: boolean }) {
+  const cells = value ? new Set(PIP_CELLS[value]) : null;
   return (
-    <div className="die" aria-label={value ? `Кубик ${value}` : 'Кубик'}>
-      {value ?? '—'}
+    <div
+      className={`die${rolling ? ' die--rolling' : ''}`}
+      aria-label={value ? `Кубик ${value}` : 'Кубик'}
+    >
+      {cells ? (
+        <span className="die__pips">
+          {Array.from({ length: 9 }, (_, i) => (
+            <span key={i} className="die__cell">
+              {cells.has(i) && <span className="die__pip" />}
+            </span>
+          ))}
+        </span>
+      ) : (
+        '—'
+      )}
     </div>
   );
 }

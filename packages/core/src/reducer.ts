@@ -53,6 +53,8 @@ export function reduce(state: GameState, action: Action): GameState {
       return buyCurrent(state);
     case 'turn/declinePurchase':
       return declinePurchase(state);
+    case 'turn/auctionCurrent':
+      return auctionCurrent(state);
     case 'turn/end':
       return endTurn(state);
     case 'manage/buyHouse':
@@ -825,6 +827,23 @@ function buyCurrent(state: GameState): GameState {
 }
 
 function declinePurchase(state: GameState): GameState {
+  if (state.phase !== 'playing') return state;
+  if (!state.pendingPurchase) return state;
+  const current = state.players[state.currentPlayerIndex];
+  if (!current) return state;
+  const tileIndex = state.pendingPurchase.tileIndex;
+  const tile = getTile(tileIndex);
+  return appendLogEntries({ ...state, pendingPurchase: null }, [
+    {
+      turn: state.turn,
+      playerId: current.id,
+      messageKey: 'log.declined',
+      params: { name: current.name, tile: tile.nameKey },
+    },
+  ]);
+}
+
+function auctionCurrent(state: GameState): GameState {
   if (state.phase !== 'playing') return state;
   if (!state.pendingPurchase) return state;
   const current = state.players[state.currentPlayerIndex];
