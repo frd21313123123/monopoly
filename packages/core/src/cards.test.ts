@@ -222,13 +222,14 @@ describe('card effects', () => {
     expect(s.players[0]!.money).toBe(before - (3 * 25 + 100));
   });
 
-  it('rejects bankruptcy when card forces unaffordable payment', () => {
+  it('pauses on a debt when a card forces an unaffordable payment', () => {
     const cardIdx = chanceIdxByCardId('chance-13'); // payBank ₽15
     let s = setup();
     s = setChanceTop(s, cardIdx);
     s = { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, money: 5 } : p)) };
     s = placePlayerAndRoll(s, 7);
-    expect(s.players[0]!.bankrupt).toBe(true);
+    expect(s.pendingDebt).not.toBeNull();
+    expect(s.players[0]!.bankrupt).toBe(false);
   });
 });
 

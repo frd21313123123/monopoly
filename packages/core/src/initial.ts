@@ -11,16 +11,20 @@ export function initialState(seed: number = Date.now() >>> 0): GameState {
     turn: 0,
     rngState: seed >>> 0,
     lastRoll: null,
+    rollSeq: 0,
     doublesThisTurn: 0,
     pendingEndTurn: false,
     pendingPurchase: null,
+    pendingOffer: null,
     pendingAuction: null,
     pendingTrade: null,
+    pendingDebt: null,
     buildings: {},
     mortgaged: [],
     chanceDeck: [],
     chestDeck: [],
     log: [],
+    logSeq: 0,
   };
 }
 

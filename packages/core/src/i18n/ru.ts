@@ -71,6 +71,17 @@ export const ru = {
   'game.buy': 'Купить за ₽{price}',
   'game.decline': 'Отказаться',
   'game.auctionStart': 'На аукцион',
+  'game.offerToPlayer': 'Предложить другому',
+  'game.offerTitle': 'Предложить покупку',
+  'game.offerSelectPlayer': 'Кому предложить',
+  'game.offerPrice': 'Цена (₽)',
+  'game.offerSend': 'Предложить за ₽{price}',
+  'game.offerReviewTitle': 'Вам предлагают купить',
+  'game.offerReviewBody': '{from} предлагает вам купить «{tile}» за ₽{price}',
+  'game.offerReviewBase': 'Обычная цена участка: ₽{price}',
+  'game.offerAccept': 'Купить за ₽{price}',
+  'game.offerDecline': 'Отказаться',
+  'game.offerCantAfford': 'Недостаточно средств',
   'game.gameOver': 'Игра окончена',
   'game.winner': 'Победил: {name}',
   'game.properties': 'Мои монополии',
@@ -103,6 +114,29 @@ export const ru = {
   'game.tradeDecline': 'Отказаться',
   'game.openTrade': 'Торговля…',
   'game.cancel': 'Отмена',
+  'game.debtTitle': 'Не хватает денег!',
+  'game.debtOwe': 'Вы должны ₽{amount} ({creditor})',
+  'game.debtToBank': 'банку',
+  'game.debtRaise': 'Продайте дома или заложите имущество, чтобы собрать сумму.',
+  'game.debtHave': 'Сейчас у вас: ₽{money}',
+  'game.debtPay': 'Оплатить ₽{amount}',
+  'game.debtBankrupt': 'Объявить банкротство',
+  'game.debtNeedMore': 'Нужно ещё ₽{amount}',
+  'game.close': 'Закрыть',
+  'game.ok': 'Понятно',
+  'game.myCards': 'Мои карты',
+  'game.jailFreeCardTitle': 'Освобождение из тюрьмы',
+  'game.jailFreeCardBody': 'Эту карту можно использовать, чтобы выйти из тюрьмы без оплаты.',
+  'game.viewCards': 'Карты ({n})',
+  'event.turnStart': 'Ваш ход',
+  'event.goToJail': 'В тюрьму!',
+  'event.jailEscape': 'На свободу!',
+  'event.jailPaid': 'Вы вышли из тюрьмы',
+  'event.passedGo': 'Старт',
+  'event.rent': 'Оплата ренты',
+  'event.tax': 'Налог',
+  'event.bankrupt': 'Банкротство',
+  'event.gameWon': 'Победа!',
   'game.view2d': '2D',
   'game.view3d': '3D',
   'game.rotateLeft': 'Повернуть стол влево',
@@ -139,9 +173,13 @@ export const ru = {
   'log.auctionPass': '{name} пасует',
   'log.auctionWon': '{name} выиграл «{tile}» за ₽{amount}',
   'log.auctionNoWinner': 'Аукцион на «{tile}» завершён без победителя',
+  'log.debtPaid': '{name} погасил долг ₽{amount} ({creditor})',
   'log.tradeProposed': '{from} предлагает обмен игроку {to}',
   'log.tradeAccepted': '{to} принял предложение от {from}',
   'log.tradeDeclined': '{to} отклонил предложение от {from}',
+  'log.offerProposed': '{from} предлагает {to} купить «{tile}» за ₽{price}',
+  'log.offerAccepted': '{to} купил «{tile}» у {from} за ₽{price}',
+  'log.offerDeclined': '{to} отказался купить «{tile}»',
 
   'card.chance.advanceToGo': 'Перейдите на «СТАРТ». Получите ₽200',
   'card.chance.toProspektMira': 'Отправляйтесь на Проспект Мира. Если пройдёте СТАРТ — получите ₽200',
@@ -187,6 +225,8 @@ export function t(key: string, params?: Readonly<Record<string, string | number>
     const value = params[k];
     if (value === undefined) return `{${k}}`;
     const str = String(value);
-    return str.startsWith('tile.') || str.startsWith('token.') ? t(str) : str;
+    return str.startsWith('tile.') || str.startsWith('token.') || str.startsWith('card.')
+      ? t(str)
+      : str;
   });
 }

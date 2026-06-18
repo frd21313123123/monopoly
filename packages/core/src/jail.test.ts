@@ -147,14 +147,17 @@ describe('jail/roll', () => {
     expect(next.pendingEndTurn).toBe(true);
   });
 
-  it('3rd failed attempt with insufficient funds → bankruptcy', () => {
+  it('3rd failed attempt with insufficient funds → debt, then bankruptcy', () => {
     let s = jailPlayer(setup(), 0, 2);
     s = {
       ...s,
       rngState: findNonDoubleSeed(),
       players: s.players.map((p, i) => (i === 0 ? { ...p, money: 10 } : p)),
     };
-    const next = reduce(s, { type: 'jail/roll' });
+    let next = reduce(s, { type: 'jail/roll' });
+    expect(next.pendingDebt).not.toBeNull();
+    expect(next.players[0]!.bankrupt).toBe(false);
+    next = reduce(next, { type: 'debt/declareBankruptcy' });
     expect(next.players[0]!.bankrupt).toBe(true);
     expect(next.phase).toBe('finished');
   });

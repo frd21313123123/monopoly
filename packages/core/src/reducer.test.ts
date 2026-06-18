@@ -4,6 +4,7 @@ import { reduce } from './reducer.js';
 import { rollDicePure } from './rng/dice.js';
 import { BOARD_SIZE, getTile } from './board.js';
 import { findOwner } from './ownership.js';
+import { t } from './i18n/ru.js';
 import { TileKind, type Action, type GameState } from './types.js';
 
 const seed = 12345;
@@ -273,6 +274,119 @@ describe('buy / decline', () => {
   });
 });
 
+describe('log popups', () => {
+  it('translates a card text key embedded in a log param', () => {
+    // The {text} param is a card.* key and must be recursively translated.
+    const rendered = t('log.drewChance', { name: 'Алиса', text: 'card.chance.buildingLoan' });
+    expect(rendered).not.toContain('card.chance.buildingLoan');
+    expect(rendered).toContain(t('card.chance.buildingLoan'));
+  });
+
+  it('logSeq keeps counting after the log array caps at 100 entries', () => {
+    let s = startedGame();
+    // Deep pockets so nobody bankrupts and the game runs long enough to cap the log.
+    s = patchPlayer(patchPlayer(s, 0, { money: 1_000_000 }), 1, { money: 1_000_000 });
+    for (let i = 0; i < 200 && s.phase === 'playing'; i++) {
+      s = patchPlayer(patchPlayer(s, 0, { money: 1_000_000 }), 1, { money: 1_000_000 });
+      const cur = s.players[s.currentPlayerIndex]!;
+      s = cur.inJail
+        ? reduce(s, { type: 'jail/payFine' })
+        : settlePending(reduce(s, { type: 'turn/rollAndMove' }));
+      if (s.pendingEndTurn) s = reduce(s, { type: 'turn/end' });
+    }
+    expect(s.log.length).toBeLessThanOrEqual(100);
+    expect(s.logSeq).toBeGreaterThan(100);
+  });
+});
+
+describe('rollSeq', () => {
+  it('bumps on a real roll but not on a follow-up action', () => {
+    let s = landAt(startedGame(), { target: 5, playerIndex: 0 });
+    expect(s.rollSeq).toBe(1);
+    if (!s.pendingPurchase) throw new Error('expected pending');
+    const seqBeforeBuy = s.rollSeq;
+    s = reduce(s, { type: 'turn/declinePurchase' });
+    expect(s.rollSeq).toBe(seqBeforeBuy);
+  });
+});
+
+describe('offer purchase to another player', () => {
+  it('offerPurchase moves pendingPurchase into pendingOffer', () => {
+    let s = landAt(startedGame(), { target: 5, playerIndex: 0 });
+    if (!s.pendingPurchase) throw new Error('expected pending');
+    const tileIndex = s.pendingPurchase.tileIndex;
+    const basePrice = s.pendingPurchase.price;
+    const buyerId = s.players[1]!.id;
+    s = reduce(s, { type: 'turn/offerPurchase', toPlayerId: buyerId, price: 500 });
+    expect(s.pendingPurchase).toBeNull();
+    expect(s.pendingOffer).toEqual({
+      tileIndex,
+      fromPlayerId: s.players[0]!.id,
+      toPlayerId: buyerId,
+      price: 500,
+      originalPrice: basePrice,
+    });
+  });
+
+  it('accepting pays the named price to the offering player and transfers the tile', () => {
+    let s = landAt(startedGame(), { target: 5, playerIndex: 0 });
+    if (!s.pendingPurchase) throw new Error('expected pending');
+    const tileIndex = s.pendingPurchase.tileIndex;
+    const sellerMoney = s.players[0]!.money;
+    const buyerMoney = s.players[1]!.money;
+    const buyerId = s.players[1]!.id;
+    s = reduce(s, { type: 'turn/offerPurchase', toPlayerId: buyerId, price: 500 });
+    s = reduce(s, { type: 'offer/accept' });
+    expect(s.pendingOffer).toBeNull();
+    expect(s.players[1]!.money).toBe(buyerMoney - 500);
+    expect(s.players[1]!.ownedTiles).toContain(tileIndex);
+    expect(s.players[0]!.money).toBe(sellerMoney + 500);
+    expect(s.players[0]!.ownedTiles).not.toContain(tileIndex);
+  });
+
+  it('accepting is rejected when the buyer cannot afford the price', () => {
+    let s = landAt(startedGame(), { target: 5, playerIndex: 0 });
+    if (!s.pendingPurchase) throw new Error('expected pending');
+    s = patchPlayer(s, 1, { money: 100 });
+    const buyerId = s.players[1]!.id;
+    s = reduce(s, { type: 'turn/offerPurchase', toPlayerId: buyerId, price: 500 });
+    const before = s;
+    s = reduce(s, { type: 'offer/accept' });
+    expect(s).toBe(before);
+    expect(s.pendingOffer).not.toBeNull();
+  });
+
+  it('declining restores the original purchase prompt for the current player', () => {
+    let s = landAt(startedGame(), { target: 5, playerIndex: 0 });
+    if (!s.pendingPurchase) throw new Error('expected pending');
+    const basePrice = s.pendingPurchase.price;
+    const tileIndex = s.pendingPurchase.tileIndex;
+    const buyerId = s.players[1]!.id;
+    s = reduce(s, { type: 'turn/offerPurchase', toPlayerId: buyerId, price: 500 });
+    s = reduce(s, { type: 'offer/decline' });
+    expect(s.pendingOffer).toBeNull();
+    expect(s.pendingPurchase).toEqual({ tileIndex, price: basePrice });
+  });
+
+  it('offerPurchase rejects the current player as the target', () => {
+    let s = landAt(startedGame(), { target: 5, playerIndex: 0 });
+    if (!s.pendingPurchase) throw new Error('expected pending');
+    const before = s;
+    s = reduce(s, { type: 'turn/offerPurchase', toPlayerId: s.players[0]!.id, price: 500 });
+    expect(s).toBe(before);
+  });
+
+  it('endTurn is blocked while an offer is pending', () => {
+    let s = landAt(startedGame(), { target: 5, playerIndex: 0 });
+    if (!s.pendingPurchase) throw new Error('expected pending');
+    const buyerId = s.players[1]!.id;
+    s = reduce(s, { type: 'turn/offerPurchase', toPlayerId: buyerId, price: 500 });
+    const before = s;
+    s = reduce(s, { type: 'turn/end' });
+    expect(s).toBe(before);
+  });
+});
+
 describe('rent', () => {
   it('opponent landing on owned street pays base rent', () => {
     let s = startedGame();
@@ -325,24 +439,54 @@ describe('tax', () => {
 });
 
 describe('bankruptcy', () => {
-  it('paying tax with insufficient funds triggers bankruptcy and game-over with 2 players', () => {
+  it('insufficient funds pauses on a debt instead of bankrupting instantly', () => {
     let s = startedGame();
     s = patchPlayer(s, 0, { money: 10 });
     s = landAt(s, { target: 4, playerIndex: 0, sum: 4 });
+    expect(s.pendingDebt).not.toBeNull();
+    expect(s.pendingDebt?.debtorId).toBe('p1');
+    expect(s.players[0]!.bankrupt).toBe(false);
+    expect(s.phase).toBe('playing');
+  });
+
+  it('declaring bankruptcy from a debt to the bank ends the game with 2 players', () => {
+    let s = startedGame();
+    s = patchPlayer(s, 0, { money: 10 });
+    s = landAt(s, { target: 4, playerIndex: 0, sum: 4 });
+    s = reduce(s, { type: 'debt/declareBankruptcy' });
     expect(s.players[0]!.bankrupt).toBe(true);
     expect(s.players[0]!.money).toBe(0);
     expect(s.phase).toBe('finished');
   });
 
-  it('paying rent with insufficient funds transfers cash and tiles to creditor', () => {
+  it('declaring bankruptcy on rent transfers cash and tiles to creditor', () => {
     let s = startedGame();
     s = patchPlayer(s, 0, { money: 1, ownedTiles: [37] });
     s = patchPlayer(s, 1, { ownedTiles: [1, 3] });
     s = landAt(s, { target: 3, playerIndex: 0, sum: 3 });
+    expect(s.pendingDebt?.creditorId).toBe('p2');
+    s = reduce(s, { type: 'debt/declareBankruptcy' });
     expect(s.players[0]!.bankrupt).toBe(true);
     expect(s.players[1]!.money).toBe(STARTING_MONEY + 1);
     expect(findOwner(s, 37)?.id).toBe('p2');
     expect(s.phase).toBe('finished');
+  });
+
+  it('paying off a debt after selling property clears it and continues the turn', () => {
+    let s = startedGame();
+    // p1 owes rent but can raise money by mortgaging an owned tile.
+    s = patchPlayer(s, 0, { money: 1, ownedTiles: [37] });
+    s = patchPlayer(s, 1, { ownedTiles: [1, 3] });
+    s = landAt(s, { target: 3, playerIndex: 0, sum: 3 });
+    expect(s.pendingDebt).not.toBeNull();
+    const owed = s.pendingDebt!.amount;
+    // Mortgage to raise cash (action allowed during debt).
+    s = reduce(s, { type: 'manage/mortgage', tileIndex: 37 });
+    expect(s.players[0]!.money).toBeGreaterThanOrEqual(owed);
+    s = reduce(s, { type: 'debt/pay' });
+    expect(s.pendingDebt).toBeNull();
+    expect(s.players[0]!.bankrupt).toBe(false);
+    expect(s.phase).toBe('playing');
   });
 });
 

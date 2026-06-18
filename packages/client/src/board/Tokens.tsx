@@ -1,22 +1,26 @@
 import { useEffect, useRef } from 'react';
 import { BOARD_SIZE, getToken, type Player, type TileIndex } from '@monopoly/core';
 import { tileLayout } from './layout.js';
+import { DICE_ROLL_MS_2D, useMoveGate } from '../anim.js';
+import { playLand, playStep } from '../audio/sounds.js';
 
 interface TokensProps {
   players: readonly Player[];
   currentPlayerId: string | null;
+  rollSeq: number;
 }
 
 const RADIUS = 18;
 const STEP_MS = 180; // walk one tile
 const GLIDE_MS = 650; // direct jump (jail / advance to GO from afar)
 
-export function Tokens({ players, currentPlayerId }: TokensProps) {
+export function Tokens({ players, currentPlayerId, rollSeq }: TokensProps) {
   const byTile = groupByPosition(players);
   const slotOf = new Map<string, { slot: number; slotCount: number }>();
   for (const occupants of byTile.values()) {
     occupants.forEach((p, i) => slotOf.set(p.id, { slot: i, slotCount: occupants.length }));
   }
+  const moveGate = useMoveGate(rollSeq, DICE_ROLL_MS_2D);
 
   return (
     <g className="tokens-layer">
@@ -29,6 +33,7 @@ export function Tokens({ players, currentPlayerId }: TokensProps) {
             slot={s.slot}
             slotCount={s.slotCount}
             isCurrent={player.id === currentPlayerId}
+            moveGate={moveGate}
           />
         );
       })}
@@ -41,9 +46,10 @@ interface TokenMarkerProps {
   slot: number;
   slotCount: number;
   isCurrent: boolean;
+  moveGate: React.MutableRefObject<number>;
 }
 
-function TokenMarker({ player, slot, slotCount, isCurrent }: TokenMarkerProps) {
+function TokenMarker({ player, slot, slotCount, isCurrent, moveGate }: TokenMarkerProps) {
   const gRef = useRef<SVGGElement>(null);
   const rafRef = useRef<number>(0);
   const logicalTile = useRef<number>(player.position);
@@ -80,6 +86,7 @@ function TokenMarker({ player, slot, slotCount, isCurrent }: TokenMarkerProps) {
         : walkPoint(tile);
       const dur = glide ? GLIDE_MS : STEP_MS;
       const start = performance.now();
+      if (!glide) playStep();
 
       const tick = (now: number) => {
         const tnorm = Math.min(1, (now - start) / dur);
@@ -92,11 +99,22 @@ function TokenMarker({ player, slot, slotCount, isCurrent }: TokenMarkerProps) {
           rafRef.current = requestAnimationFrame(tick);
         } else if (++idx < steps.length) {
           runSegment();
+        } else {
+          playLand();
         }
       };
       rafRef.current = requestAnimationFrame(tick);
     };
-    runSegment();
+
+    // Wait for the dice to settle before stepping off.
+    const waitForGate = () => {
+      if (performance.now() >= moveGate.current) {
+        runSegment();
+      } else {
+        rafRef.current = requestAnimationFrame(waitForGate);
+      }
+    };
+    waitForGate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [player.position, slot, slotCount]);
 

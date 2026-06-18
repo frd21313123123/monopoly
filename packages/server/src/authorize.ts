@@ -12,6 +12,7 @@ import type { Action, GameState } from '@monopoly/core';
  *   carry their own playerId field but must match the submitter.
  * - trade/propose — only the from-player.
  * - trade/accept, trade/decline — only the to-player.
+ * - offer/accept, offer/decline — only the offered-to player.
  */
 export function canSubmitAction(state: GameState, playerId: string, action: Action): boolean {
   switch (action.type) {
@@ -24,6 +25,7 @@ export function canSubmitAction(state: GameState, playerId: string, action: Acti
     case 'turn/buyCurrent':
     case 'turn/declinePurchase':
     case 'turn/auctionCurrent':
+    case 'turn/offerPurchase':
     case 'turn/end':
     case 'manage/buyHouse':
     case 'manage/sellHouse':
@@ -32,6 +34,8 @@ export function canSubmitAction(state: GameState, playerId: string, action: Acti
     case 'jail/roll':
     case 'jail/payFine':
     case 'jail/useCard':
+    case 'debt/pay':
+    case 'debt/declareBankruptcy':
       return playerId === state.players[state.currentPlayerIndex]?.id;
 
     case 'auction/bid':
@@ -48,5 +52,9 @@ export function canSubmitAction(state: GameState, playerId: string, action: Acti
     case 'trade/accept':
     case 'trade/decline':
       return playerId === state.pendingTrade?.toPlayerId;
+
+    case 'offer/accept':
+    case 'offer/decline':
+      return playerId === state.pendingOffer?.toPlayerId;
   }
 }

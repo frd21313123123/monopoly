@@ -96,6 +96,20 @@ export interface PendingPurchase {
   price: number;
 }
 
+/**
+ * The current player landed on an unowned tile they don't want (or can't afford)
+ * and is offering another player the right to buy it at a price they name. The
+ * buyer pays that price to the current player (`fromPlayerId`) and receives the
+ * tile. On decline the original purchase prompt (`originalPrice`) is restored.
+ */
+export interface PendingOffer {
+  tileIndex: TileIndex;
+  fromPlayerId: string;
+  toPlayerId: string;
+  price: number;
+  originalPrice: number;
+}
+
 export interface PendingAuction {
   tileIndex: TileIndex;
   currentBid: number;
@@ -117,6 +131,24 @@ export interface PendingTrade {
   toOffer: TradeBundle;
 }
 
+/**
+ * A debt the current player must cover before the turn can continue. Instead of
+ * bankrupting instantly when a player can't pay, the game pauses on this state so
+ * the debtor can sell houses / mortgage property to raise the money — or choose
+ * to declare bankruptcy explicitly.
+ */
+export interface PendingDebt {
+  debtorId: string;
+  /** Creditor player id, or null when the money is owed to the bank. */
+  creditorId: string | null;
+  amount: number;
+  /**
+   * If set, the debt arose from the forced jail fine: once it's settled the
+   * debtor leaves jail and advances by this dice sum.
+   */
+  jailMoveSum?: number;
+}
+
 export interface GameState {
   phase: Phase;
   players: readonly Player[];
@@ -124,11 +156,15 @@ export interface GameState {
   turn: number;
   rngState: number;
   lastRoll: DiceRoll | null;
+  /** Monotonic counter bumped on every real dice roll. UI animates off this, not the lastRoll reference (which changes on every network state update). */
+  rollSeq: number;
   doublesThisTurn: number;
   pendingEndTurn: boolean;
   pendingPurchase: PendingPurchase | null;
+  pendingOffer: PendingOffer | null;
   pendingAuction: PendingAuction | null;
   pendingTrade: PendingTrade | null;
+  pendingDebt: PendingDebt | null;
   /** Building level per tile: 0 = none, 1-4 = houses, 5 = hotel. */
   buildings: Readonly<Record<TileIndex, number>>;
   /** Set of mortgaged tile indices. */
@@ -138,6 +174,10 @@ export interface GameState {
   /** Order of remaining community chest card indices; top is element 0. */
   chestDeck: readonly number[];
   log: readonly LogEntry[];
+  /** Total number of log entries ever appended. The `log` array itself is capped
+   * at 100, so its length plateaus; this keeps growing and lets the UI detect new
+   * entries (e.g. to drive event popups) without missing any. */
+  logSeq: number;
 }
 
 export const HOTEL_LEVEL = 5;
@@ -162,6 +202,9 @@ export type Action =
   | { type: 'turn/buyCurrent' }
   | { type: 'turn/declinePurchase' }
   | { type: 'turn/auctionCurrent' }
+  | { type: 'turn/offerPurchase'; toPlayerId: string; price: number }
+  | { type: 'offer/accept' }
+  | { type: 'offer/decline' }
   | { type: 'turn/end' }
   | { type: 'manage/buyHouse'; tileIndex: TileIndex }
   | { type: 'manage/sellHouse'; tileIndex: TileIndex }
@@ -170,6 +213,8 @@ export type Action =
   | { type: 'jail/roll' }
   | { type: 'jail/payFine' }
   | { type: 'jail/useCard' }
+  | { type: 'debt/pay' }
+  | { type: 'debt/declareBankruptcy' }
   | { type: 'auction/bid'; playerId: string; amount: number }
   | { type: 'auction/pass'; playerId: string }
   | {

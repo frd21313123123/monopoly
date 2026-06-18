@@ -3,16 +3,21 @@ import { useFrame } from '@react-three/fiber';
 import { BOARD_SIZE, getToken, type Player, type TileIndex } from '@monopoly/core';
 import { Group, Vector3 } from 'three';
 import { SURFACE_Y, tileWorld, tokenSlotWorld } from './layout3d.js';
+import { DICE_ROLL_MS_3D, useMoveGate } from '../anim.js';
+import { playLand, playStep } from '../audio/sounds.js';
 
 interface Tokens3DProps {
   players: readonly Player[];
   currentPlayerId: string | null;
+  rollSeq: number;
 }
 
 /** All player pawns, each animating step-by-step toward its tile. */
-export function Tokens3D({ players, currentPlayerId }: Tokens3DProps) {
+export function Tokens3D({ players, currentPlayerId, rollSeq }: Tokens3DProps) {
   // Final slot assignment per player, based on current (target) positions.
   const slots = useMemo(() => assignSlots(players), [players]);
+  // Pawns must not start walking until the dice have settled.
+  const moveGate = useMoveGate(rollSeq, DICE_ROLL_MS_3D);
 
   return (
     <group>
@@ -24,6 +29,7 @@ export function Tokens3D({ players, currentPlayerId }: Tokens3DProps) {
             player={p}
             slot={slots.get(p.id)!}
             isCurrent={p.id === currentPlayerId}
+            moveGate={moveGate}
           />
         ))}
     </group>
@@ -54,7 +60,17 @@ const PAWN_BASE_Y = SURFACE_Y + 0.02;
 const STEP_MS = 200; // per-tile walk
 const GLIDE_MS = 650; // direct teleport (jail / long jump)
 
-function Pawn({ player, slot, isCurrent }: { player: Player; slot: SlotInfo; isCurrent: boolean }) {
+function Pawn({
+  player,
+  slot,
+  isCurrent,
+  moveGate,
+}: {
+  player: Player;
+  slot: SlotInfo;
+  isCurrent: boolean;
+  moveGate: React.MutableRefObject<number>;
+}) {
   const ref = useRef<Group>(null);
   const logicalTile = useRef<number>(player.position);
   const path = useRef<number[]>([]);
@@ -64,6 +80,8 @@ function Pawn({ player, slot, isCurrent }: { player: Player; slot: SlotInfo; isC
   const segDur = useRef(STEP_MS);
   const directGlide = useRef(false);
   const initialized = useRef(false);
+  // While true, a path is queued but waiting for the dice to finish.
+  const awaitingGate = useRef(false);
 
   // Place at the right spot on first mount.
   useEffect(() => {
@@ -101,7 +119,8 @@ function Pawn({ player, slot, isCurrent }: { player: Player; slot: SlotInfo; isC
     if (steps.length > 0) {
       path.current = steps;
       directGlide.current = glide;
-      startSegment();
+      // Defer the first segment until the dice-settle gate has elapsed.
+      awaitingGate.current = true;
     }
     logicalTile.current = target;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,11 +138,19 @@ function Pawn({ player, slot, isCurrent }: { player: Player; slot: SlotInfo; isC
     segTo.current.set(dest.x, PAWN_BASE_Y, dest.z);
     segStart.current = performance.now();
     segDur.current = directGlide.current ? GLIDE_MS : STEP_MS;
+    if (!directGlide.current) playStep();
   }
 
   useFrame(() => {
     const g = ref.current;
-    if (!g || path.current.length === 0) return;
+    if (!g) return;
+    // Hold a queued path until the dice have settled.
+    if (awaitingGate.current) {
+      if (performance.now() < moveGate.current) return;
+      awaitingGate.current = false;
+      startSegment();
+    }
+    if (path.current.length === 0) return;
     const elapsed = performance.now() - segStart.current;
     const tnorm = Math.min(1, elapsed / segDur.current);
     const eased = directGlide.current ? smooth(tnorm) : tnorm;
@@ -136,7 +163,10 @@ function Pawn({ player, slot, isCurrent }: { player: Player; slot: SlotInfo; isC
     if (tnorm >= 1) {
       path.current.shift();
       if (path.current.length > 0) startSegment();
-      else g.position.y = PAWN_BASE_Y;
+      else {
+        g.position.y = PAWN_BASE_Y;
+        playLand();
+      }
     }
   });
 

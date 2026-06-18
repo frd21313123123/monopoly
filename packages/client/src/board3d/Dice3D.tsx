@@ -22,22 +22,24 @@ const FACE_UP: Record<number, [number, number, number]> = {
 
 interface Dice3DProps {
   roll: DiceRoll | null;
+  rollSeq: number;
 }
 
 /** Two tumbling dice that settle to show the values of `roll` (3s animation). */
-export function Dice3D({ roll }: Dice3DProps) {
+export function Dice3D({ roll, rollSeq }: Dice3DProps) {
   const [seed, setSeed] = useState(0);
-  const prevRollRef = useRef<DiceRoll | null>(null);
+  const prevSeqRef = useRef<number>(rollSeq);
   const startRef = useRef<number>(-Infinity);
 
-  // Detect a fresh roll (new object reference from the reducer) and start anim.
+  // Re-run the tumble only when a real roll happens (rollSeq bumps), not on every
+  // network state update (which hands us a fresh `roll` object each time).
   useEffect(() => {
-    if (roll && roll !== prevRollRef.current) {
-      prevRollRef.current = roll;
+    if (rollSeq !== prevSeqRef.current) {
+      prevSeqRef.current = rollSeq;
       startRef.current = performance.now();
       setSeed((s) => s + 1);
     }
-  }, [roll]);
+  }, [rollSeq]);
 
   if (!roll) return null;
 

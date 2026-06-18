@@ -5,6 +5,9 @@ import { Board3D } from '../board3d/Board3D.js';
 import { Sidebar } from './Sidebar.js';
 import { AuctionModal } from './AuctionModal.js';
 import { TradeReviewModal } from './TradeReviewModal.js';
+import { OfferReviewModal } from './OfferReviewModal.js';
+import { DebtModal } from './DebtModal.js';
+import { EventOverlay } from './EventOverlay.js';
 import type { GameApi } from './useGame.js';
 
 interface GameProps {
@@ -20,6 +23,11 @@ export function Game({ api }: GameProps) {
   const showTradeReview = api.mode === 'local'
     ? api.state.pendingTrade !== null
     : isTradeRecipient;
+
+  const isOfferRecipient = api.state.pendingOffer?.toPlayerId === viewerId;
+  const showOfferReview = api.mode === 'local'
+    ? api.state.pendingOffer !== null
+    : isOfferRecipient;
 
   const currentPlayerId = api.state.players[api.state.currentPlayerIndex]?.id ?? null;
 
@@ -44,6 +52,9 @@ export function Game({ api }: GameProps) {
       </div>
       {api.state.pendingAuction && <AuctionModal api={api} />}
       {showTradeReview && <TradeReviewModal api={api} />}
+      {showOfferReview && <OfferReviewModal api={api} />}
+      {api.state.pendingDebt && <DebtModal api={api} />}
+      <EventOverlay api={api} />
     </div>
   );
 }
