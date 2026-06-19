@@ -974,9 +974,12 @@ function offerPurchase(state: GameState, toPlayerId: string, price: number): Gam
   if (toPlayerId === current.id) return state;
   const to = state.players.find((p) => p.id === toPlayerId);
   if (!to || to.bankrupt) return state;
-  if (!Number.isInteger(price) || price <= 0) return state;
-
   const { tileIndex, price: originalPrice } = state.pendingPurchase;
+  // The named price must cover at least the tile's base (bank) price — that
+  // amount goes to the bank on accept. A lower price would make the markup
+  // negative and drain the offering player's balance.
+  if (!Number.isInteger(price) || price < originalPrice) return state;
+
   const tile = getTile(tileIndex);
   return appendLogEntries(
     {

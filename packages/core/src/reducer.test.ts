@@ -405,6 +405,31 @@ describe('offer purchase to another player', () => {
     expect(s).toBe(before);
   });
 
+  it('offerPurchase rejects a price below the tile base price', () => {
+    let s = landAt(startedGame(), { target: 5, playerIndex: 0 });
+    if (!s.pendingPurchase) throw new Error('expected pending');
+    const basePrice = s.pendingPurchase.price;
+    const buyerId = s.players[1]!.id;
+    const before = s;
+    s = reduce(s, { type: 'turn/offerPurchase', toPlayerId: buyerId, price: basePrice - 10 });
+    expect(s).toBe(before);
+    expect(s.pendingOffer).toBeNull();
+    expect(s.pendingPurchase).not.toBeNull();
+  });
+
+  it('offerPurchase allows a price equal to the tile base price (zero markup)', () => {
+    let s = landAt(startedGame(), { target: 5, playerIndex: 0 });
+    if (!s.pendingPurchase) throw new Error('expected pending');
+    const basePrice = s.pendingPurchase.price;
+    const sellerMoney = s.players[0]!.money;
+    const buyerId = s.players[1]!.id;
+    s = reduce(s, { type: 'turn/offerPurchase', toPlayerId: buyerId, price: basePrice });
+    expect(s.pendingOffer).not.toBeNull();
+    s = reduce(s, { type: 'offer/accept' });
+    // Whole price goes to the bank; the offering player pockets nothing.
+    expect(s.players[0]!.money).toBe(sellerMoney);
+  });
+
   it('endTurn is blocked while an offer is pending', () => {
     let s = landAt(startedGame(), { target: 5, playerIndex: 0 });
     if (!s.pendingPurchase) throw new Error('expected pending');

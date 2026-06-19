@@ -244,7 +244,7 @@ function OfferModal({ api, tileIndex, basePrice, onClose }: OfferModalProps) {
   const [toId, setToId] = useState(candidates[0]?.id ?? '');
   const [price, setPrice] = useState(basePrice);
   const tile = getTile(tileIndex);
-  const valid = toId !== '' && Number.isInteger(price) && price > 0;
+  const valid = toId !== '' && Number.isInteger(price) && price >= basePrice;
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -266,11 +266,12 @@ function OfferModal({ api, tileIndex, basePrice, onClose }: OfferModalProps) {
           <input
             className="offer-form__control"
             type="number"
-            min={1}
+            min={basePrice}
             step={10}
             value={price}
             onChange={(e) => setPrice(Math.floor(Number(e.target.value)))}
           />
+          <span className="offer-form__hint">{t('game.offerMinPrice', { price: basePrice })}</span>
         </label>
         <div className="modal__buttons">
           <button
