@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { getToken, MIN_PLAYERS, t } from '@monopoly/core';
+import { getToken, MIN_PLAYERS, playerColor, t } from '@monopoly/core';
 import type { GameApi } from '../game/useGame.js';
-import { TokenPicker } from './TokenPicker.js';
+import { ColorPicker, TokenPicker } from './TokenPicker.js';
 
 interface LobbyProps {
   api: GameApi;
@@ -10,6 +10,7 @@ interface LobbyProps {
 export function Lobby({ api }: LobbyProps) {
   const [name, setName] = useState('');
   const [tokenId, setTokenId] = useState<string | null>(null);
+  const [color, setColor] = useState<string | null>(null);
 
   const takenTokens = useMemo(
     () => new Set(api.state.players.map((p) => p.tokenId)),
@@ -21,9 +22,15 @@ export function Lobby({ api }: LobbyProps) {
 
   const handleAdd = () => {
     if (!canAdd || !tokenId) return;
-    api.dispatch({ type: 'lobby/addPlayer', name: name.trim(), tokenId });
+    api.dispatch({
+      type: 'lobby/addPlayer',
+      name: name.trim(),
+      tokenId,
+      ...(color ? { color } : {}),
+    });
     setName('');
     setTokenId(null);
+    setColor(null);
   };
 
   return (
@@ -48,6 +55,11 @@ export function Lobby({ api }: LobbyProps) {
           <TokenPicker selected={tokenId} taken={takenTokens} onSelect={setTokenId} />
         </div>
 
+        <div className="lobby__token-section">
+          <div className="lobby__sublabel">{t('lobby.pickColor')}</div>
+          <ColorPicker selected={color} onSelect={setColor} />
+        </div>
+
         <button
           type="button"
           className="lobby__add"
@@ -67,7 +79,7 @@ export function Lobby({ api }: LobbyProps) {
           {api.state.players.map((p) => {
             const token = getToken(p.tokenId);
             return (
-              <li key={p.id} className="lobby__player" style={{ borderLeftColor: token?.color }}>
+              <li key={p.id} className="lobby__player" style={{ borderLeftColor: playerColor(p) }}>
                 <span className="lobby__player-symbol">{token?.symbol}</span>
                 <span className="lobby__player-name">{p.name}</span>
                 <button

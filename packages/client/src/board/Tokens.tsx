@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { BOARD_SIZE, getToken, type Player, type TileIndex } from '@monopoly/core';
+import { BOARD_SIZE, getToken, playerColor, type Player, type TileIndex } from '@monopoly/core';
 import { tileLayout } from './layout.js';
 import { DICE_ROLL_MS_2D, useMoveGate } from '../anim.js';
 import { playLand, playStep } from '../audio/sounds.js';
@@ -128,7 +128,7 @@ function TokenMarker({ player, slot, slotCount, isCurrent, moveGate }: TokenMark
     <g ref={gRef} transform={`translate(${initial.x} ${initial.y})`}>
       <circle
         r={RADIUS}
-        fill={token.color}
+        fill={playerColor(player)}
         stroke={isCurrent ? '#fff200' : '#1a1d22'}
         strokeWidth={isCurrent ? 4 : 2}
       />

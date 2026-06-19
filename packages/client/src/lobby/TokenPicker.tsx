@@ -1,4 +1,4 @@
-import { t, TOKENS, type Token } from '@monopoly/core';
+import { t, TOKEN_COLORS, TOKENS, type Token } from '@monopoly/core';
 
 interface TokenPickerProps {
   selected: string | null;
@@ -18,6 +18,37 @@ export function TokenPicker({ selected, taken, onSelect }: TokenPickerProps) {
           onClick={() => onSelect(token.id)}
         />
       ))}
+    </div>
+  );
+}
+
+interface ColorPickerProps {
+  selected: string | null;
+  onSelect: (color: string) => void;
+}
+
+export function ColorPicker({ selected, onSelect }: ColorPickerProps) {
+  return (
+    <div className="color-picker">
+      {TOKEN_COLORS.map((color) => {
+        const className = [
+          'color-swatch',
+          selected === color && 'color-swatch--selected',
+        ]
+          .filter(Boolean)
+          .join(' ');
+        return (
+          <button
+            key={color}
+            type="button"
+            className={className}
+            style={{ backgroundColor: color }}
+            onClick={() => onSelect(color)}
+            aria-label={color}
+            aria-pressed={selected === color}
+          />
+        );
+      })}
     </div>
   );
 }

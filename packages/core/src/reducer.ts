@@ -17,7 +17,7 @@ import {
 import { createPlayer, GO_BONUS } from './initial.js';
 import { computeRent, findOwner, isPurchasable, tilePrice } from './ownership.js';
 import { rollDicePure } from './rng/dice.js';
-import { MAX_PLAYERS, MIN_PLAYERS, TOKENS } from './tokens.js';
+import { MAX_PLAYERS, MIN_PLAYERS, TOKEN_COLORS, TOKENS } from './tokens.js';
 import {
   canMortgage,
   canUnmortgage,
@@ -42,7 +42,7 @@ import {
 export function reduce(state: GameState, action: Action): GameState {
   switch (action.type) {
     case 'lobby/addPlayer':
-      return addPlayer(state, action.name, action.tokenId);
+      return addPlayer(state, action.name, action.tokenId, action.color);
     case 'lobby/removePlayer':
       return removePlayer(state, action.playerId);
     case 'lobby/startGame':
@@ -608,15 +608,21 @@ function sellHouse(state: GameState, tileIndex: TileIndex): GameState {
   return next;
 }
 
-function addPlayer(state: GameState, name: string, tokenId: string): GameState {
+function addPlayer(
+  state: GameState,
+  name: string,
+  tokenId: string,
+  color?: string,
+): GameState {
   if (state.phase !== 'lobby') return state;
   if (state.players.length >= MAX_PLAYERS) return state;
   if (!TOKENS.some((t) => t.id === tokenId)) return state;
   if (state.players.some((p) => p.tokenId === tokenId)) return state;
+  if (color !== undefined && !TOKEN_COLORS.includes(color)) return state;
   const trimmedName = name.trim();
   if (trimmedName.length === 0) return state;
   const id = nextPlayerId(state);
-  const player = createPlayer(id, trimmedName, tokenId);
+  const player = createPlayer(id, trimmedName, tokenId, color);
   return { ...state, players: [...state.players, player] };
 }
 
@@ -1000,14 +1006,17 @@ function offerAccept(state: GameState): GameState {
   const sellerIdx = state.players.findIndex((p) => p.id === offer.fromPlayerId);
   if (sellerIdx < 0) return state;
 
-  // Buyer pays the named price to the offering (current) player and gets the tile.
+  // Buyer pays the full named price and gets the tile. The tile's base price
+  // goes to the bank (as if bought from the bank); only the markup the offering
+  // player added on top lands in their pocket.
+  const markup = offer.price - offer.originalPrice;
   let players = replaceAt(state.players, buyerIdx, {
     ...buyer,
     money: buyer.money - offer.price,
     ownedTiles: [...buyer.ownedTiles, offer.tileIndex],
   });
   const seller = players[sellerIdx]!;
-  players = replaceAt(players, sellerIdx, { ...seller, money: seller.money + offer.price });
+  players = replaceAt(players, sellerIdx, { ...seller, money: seller.money + markup });
 
   const tile = getTile(offer.tileIndex);
   return appendLogEntries({ ...state, players, pendingOffer: null }, [

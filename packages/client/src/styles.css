@@ -264,6 +264,31 @@ button {
   color: #b6bbc4;
 }
 
+.color-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.color-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #3a3f47;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.1s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.color-swatch:hover {
+  transform: scale(1.1);
+}
+
+.color-swatch--selected {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px #2d6ad9;
+}
+
 .lobby__add,
 .lobby__start,
 .sidebar__action {
