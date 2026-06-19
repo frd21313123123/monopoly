@@ -76,6 +76,7 @@ export const ru = {
   'game.offerTitle': 'Предложить покупку',
   'game.offerSelectPlayer': 'Кому предложить',
   'game.offerPrice': 'Цена (₽)',
+  'game.offerMinPrice': 'Не ниже цены клетки: ₽{price}',
   'game.offerSend': 'Предложить за ₽{price}',
   'game.offerReviewTitle': 'Вам предлагают купить',
   'game.offerReviewBody': '{from} предлагает вам купить «{tile}» за ₽{price}',
