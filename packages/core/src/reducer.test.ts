@@ -6,6 +6,7 @@ import { BOARD_SIZE, getTile } from './board.js';
 import { findOwner } from './ownership.js';
 import { t } from './i18n/ru.js';
 import { TileKind, type Action, type GameState } from './types.js';
+import { TOKEN_COLORS } from './tokens.js';
 
 const seed = 12345;
 
@@ -120,6 +121,31 @@ describe('lobby', () => {
   it('rejects unknown token', () => {
     const s = reduce(initialState(seed), { type: 'lobby/addPlayer', name: 'A', tokenId: 'nope' });
     expect(s.players).toHaveLength(0);
+  });
+
+  it('stores a chosen color from the palette', () => {
+    const s = reduce(initialState(seed), {
+      type: 'lobby/addPlayer',
+      name: 'A',
+      tokenId: 'hat',
+      color: TOKEN_COLORS[0],
+    });
+    expect(s.players[0]!.color).toBe(TOKEN_COLORS[0]);
+  });
+
+  it('rejects a color outside the palette', () => {
+    const s = reduce(initialState(seed), {
+      type: 'lobby/addPlayer',
+      name: 'A',
+      tokenId: 'hat',
+      color: '#123456',
+    });
+    expect(s.players).toHaveLength(0);
+  });
+
+  it('leaves color undefined when none is chosen', () => {
+    const s = reduce(initialState(seed), { type: 'lobby/addPlayer', name: 'A', tokenId: 'hat' });
+    expect(s.players[0]!.color).toBeUndefined();
   });
 
   it('caps at MAX_PLAYERS (8)', () => {
@@ -328,19 +354,22 @@ describe('offer purchase to another player', () => {
     });
   });
 
-  it('accepting pays the named price to the offering player and transfers the tile', () => {
+  it('accepting sends the base price to the bank and the markup to the offering player', () => {
     let s = landAt(startedGame(), { target: 5, playerIndex: 0 });
     if (!s.pendingPurchase) throw new Error('expected pending');
     const tileIndex = s.pendingPurchase.tileIndex;
+    const basePrice = s.pendingPurchase.price;
     const sellerMoney = s.players[0]!.money;
     const buyerMoney = s.players[1]!.money;
     const buyerId = s.players[1]!.id;
     s = reduce(s, { type: 'turn/offerPurchase', toPlayerId: buyerId, price: 500 });
     s = reduce(s, { type: 'offer/accept' });
     expect(s.pendingOffer).toBeNull();
+    // Buyer pays the full named price.
     expect(s.players[1]!.money).toBe(buyerMoney - 500);
     expect(s.players[1]!.ownedTiles).toContain(tileIndex);
-    expect(s.players[0]!.money).toBe(sellerMoney + 500);
+    // Seller only pockets the markup over the tile's base (bank) price.
+    expect(s.players[0]!.money).toBe(sellerMoney + (500 - basePrice));
     expect(s.players[0]!.ownedTiles).not.toContain(tileIndex);
   });
 

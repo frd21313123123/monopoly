@@ -126,7 +126,9 @@ Each in-repo package's `package.json` has an `exports` map with `"development": 
 
 ### Test strategy
 
-Tests are co-located (`*.test.ts` next to source) and only in `core`. Key helpers in `reducer.test.ts`:
+Tests are co-located (`*.test.ts` / `*.test.tsx` next to source) and exist in **all four packages**. Each package owns a `vitest.config.ts` (`node` env for core/protocol/server, `jsdom` for client); the root `vitest.workspace.ts` globs `packages/*/vitest.config.ts`, so a new package needs its own config to be picked up by `corepack pnpm test`.
+
+**core** — pure-function and reducer coverage. Key helpers in `reducer.test.ts`:
 - `lobbyWithTwo()` / `startedGame()` — minimal two-player setup with seed 12345.
 - `findSeedForSum(n)` — finds an RNG seed whose first roll sums to `n`. Sums of 2 and 12 are always doubles; `opts.allowDouble` must be passed for those.
 - `findDoubleSeed()` / `findNonDoubleSeed()` — helpers for jail tests.
@@ -135,6 +137,13 @@ Tests are co-located (`*.test.ts` next to source) and only in `core`. Key helper
 - `patchPlayer(state, index, patch)` — immutable player field override for test setup.
 
 Auction `MIN_BID_INCREMENT` is 10; bids below `currentBid + 10` are rejected by the reducer.
+
+**server** — `authorize.test.ts` and `rooms.test.ts` are unit tests; `server.test.ts` is a real integration test that boots a `WebSocketServer` on port 0 and drives `ws` clients through create/join/submit/leave. The room store in `rooms.ts` is a module-level singleton with no reset hook — tests assert on rooms they create or use `listRooms()` deltas rather than absolute counts.
+
+**client** — React component/hook tests via `@testing-library/react`. Shared scaffolding:
+- `src/test/setup.ts` (wired in `vitest.config.ts` `setupFiles`) registers RTL `cleanup`, sets `IS_REACT_ACT_ENVIRONMENT`, and polyfills `requestAnimationFrame`/`cancelAnimationFrame` and a stub `AudioContext` — jsdom has none, and `Tokens`/the audio module need them at render time.
+- `src/test/fakeApi.ts` — `makeApi(state, overrides)` wraps a `GameState` in a `GameApi` with a spy `dispatch`; `startedState(seed)` builds a post-lobby two-player game; `patchPlayer` mirrors the core helper. Note `startedState()` already has `logSeq ≥ 1` (startGame logs), so `EventOverlay` tests must append onto `base.log`/`base.logSeq`, not overwrite them.
+- Only WebGL/three.js views (`board3d/*`, `Game.tsx`) are intentionally untested — three.js doesn't run in jsdom; the 3D geometry is covered indirectly via `board3d/layout3d.test.ts`.
 
 ## Key files
 

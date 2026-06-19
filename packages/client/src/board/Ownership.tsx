@@ -1,4 +1,4 @@
-import { findOwner, getToken, type GameState, type TileIndex } from '@monopoly/core';
+import { findOwner, playerColor, type GameState, type TileIndex } from '@monopoly/core';
 import { tileLayout, type TileLayout } from './layout.js';
 
 interface OwnershipProps {
@@ -68,9 +68,7 @@ function ownedTiles(state: GameState): readonly { tileIndex: TileIndex; color: s
   for (const tileIndex of allOwnableTileIndices(state)) {
     const owner = findOwner(state, tileIndex);
     if (!owner) continue;
-    const token = getToken(owner.tokenId);
-    if (!token) continue;
-    result.push({ tileIndex, color: token.color });
+    result.push({ tileIndex, color: playerColor(owner) });
   }
   return result;
 }

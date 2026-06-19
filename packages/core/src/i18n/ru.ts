@@ -54,6 +54,7 @@ export const ru = {
   'lobby.remove': 'Убрать',
   'lobby.start': 'Начать игру',
   'lobby.pickToken': 'Выберите фишку',
+  'lobby.pickColor': 'Выберите цвет',
   'lobby.minPlayers': 'Нужно минимум 2 игрока',
   'lobby.maxPlayers': 'Максимум {max} игроков',
   'lobby.takenToken': 'Эта фишка уже занята',

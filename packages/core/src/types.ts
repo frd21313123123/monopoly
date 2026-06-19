@@ -75,6 +75,8 @@ export interface Player {
   id: string;
   name: string;
   tokenId: string;
+  /** Optional player-chosen pawn color; falls back to the token's default. */
+  color?: string;
   position: TileIndex;
   money: number;
   inJail: boolean;
@@ -195,7 +197,7 @@ export const MAX_JAIL_TURNS = 3;
 export const MORTGAGE_INTEREST = 0.1;
 
 export type Action =
-  | { type: 'lobby/addPlayer'; name: string; tokenId: string }
+  | { type: 'lobby/addPlayer'; name: string; tokenId: string; color?: string }
   | { type: 'lobby/removePlayer'; playerId: string }
   | { type: 'lobby/startGame' }
   | { type: 'turn/rollAndMove' }

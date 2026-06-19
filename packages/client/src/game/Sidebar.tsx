@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getTile, getToken, JAIL_FINE, MAX_JAIL_TURNS, t, type DiceRoll, type Player } from '@monopoly/core';
+import { getTile, getToken, JAIL_FINE, MAX_JAIL_TURNS, playerColor, t, type DiceRoll, type Player } from '@monopoly/core';
 import type { GameApi } from './useGame.js';
 import { Properties } from './Properties.js';
 import { TradeModal } from './TradeModal.js';
@@ -439,7 +439,7 @@ function PlayerRow({ player, isCurrent, isYou }: { player: Player; isCurrent: bo
     .filter(Boolean)
     .join(' ');
   return (
-    <li className={classes} style={{ borderLeftColor: token?.color }}>
+    <li className={classes} style={{ borderLeftColor: playerColor(player) }}>
       <span className="sidebar__player-symbol">{token?.symbol}</span>
       <span className="sidebar__player-name">
         {player.name}

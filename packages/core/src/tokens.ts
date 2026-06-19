@@ -19,6 +19,25 @@ export const TOKENS: readonly Token[] = [
 export const MAX_PLAYERS = TOKENS.length;
 export const MIN_PLAYERS = 2;
 
+/** Palette a player can pick from to recolor their 3D pawn / marker. */
+export const TOKEN_COLORS: readonly string[] = [
+  '#c92020',
+  '#e6a100',
+  '#3aa655',
+  '#1e88e5',
+  '#7d2d8a',
+  '#d63a96',
+  '#00897b',
+  '#5a3320',
+  '#2c2c2c',
+  '#9e9e9e',
+];
+
 export function getToken(id: string): Token | undefined {
   return TOKENS.find((t) => t.id === id);
+}
+
+/** Resolves a player's pawn color: their chosen color, else the token default. */
+export function playerColor(player: { tokenId: string; color?: string }): string {
+  return player.color ?? getToken(player.tokenId)?.color ?? '#888';
 }

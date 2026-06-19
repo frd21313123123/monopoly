@@ -28,11 +28,17 @@ export function initialState(seed: number = Date.now() >>> 0): GameState {
   };
 }
 
-export function createPlayer(id: string, name: string, tokenId: string): Player {
+export function createPlayer(
+  id: string,
+  name: string,
+  tokenId: string,
+  color?: string,
+): Player {
   return {
     id,
     name,
     tokenId,
+    ...(color ? { color } : {}),
     position: 0,
     money: STARTING_MONEY,
     inJail: false,

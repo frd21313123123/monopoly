@@ -1,4 +1,4 @@
-import { BOARD, getToken, t, TileKind, type GameState, type Tile } from '@monopoly/core';
+import { BOARD, playerColor, t, TileKind, type GameState, type Tile } from '@monopoly/core';
 import { Text } from '@react-three/drei';
 import { GROUP_COLORS } from '../board/colors.js';
 import {
@@ -191,5 +191,5 @@ function dirSign(side: string): number {
 function tokenColor(state: GameState, playerId: string): string {
   const player = state.players.find((p) => p.id === playerId);
   if (!player) return '#888';
-  return getToken(player.tokenId)?.color ?? '#888';
+  return playerColor(player);
 }

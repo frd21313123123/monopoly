@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { BOARD_SIZE, getToken, type Player, type TileIndex } from '@monopoly/core';
+import { BOARD_SIZE, playerColor, type Player, type TileIndex } from '@monopoly/core';
 import { Group, Vector3 } from 'three';
 import { SURFACE_Y, tileWorld, tokenSlotWorld } from './layout3d.js';
 import { DICE_ROLL_MS_3D, useMoveGate } from '../anim.js';
@@ -170,8 +170,7 @@ function Pawn({
     }
   });
 
-  const token = getToken(player.tokenId);
-  const color = token?.color ?? '#888';
+  const color = playerColor(player);
 
   return (
     <group ref={ref} position={[0, PAWN_BASE_Y, 0]}>
