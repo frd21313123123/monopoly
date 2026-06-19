@@ -218,6 +218,28 @@ describe('trade', () => {
     expect(s.players[0]!.money).toBe(STARTING_MONEY);
   });
 
+  it('cancel clears a pending proposal without exchanging anything', () => {
+    let s = setup();
+    s = giveOwnership(s, 0, [1]);
+    s = reduce(s, {
+      type: 'trade/propose',
+      fromPlayerId: 'p1',
+      toPlayerId: 'p2',
+      fromOffer: { tiles: [1], money: 50, jailFreeCards: 0 },
+      toOffer: { tiles: [], money: 0, jailFreeCards: 0 },
+    });
+    expect(s.pendingTrade).not.toBeNull();
+    s = reduce(s, { type: 'trade/cancel' });
+    expect(s.pendingTrade).toBeNull();
+    expect(s.players[0]!.ownedTiles).toContain(1);
+    expect(s.players[0]!.money).toBe(STARTING_MONEY);
+  });
+
+  it('cancel with no pending trade is a no-op', () => {
+    const s = setup();
+    expect(reduce(s, { type: 'trade/cancel' })).toBe(s);
+  });
+
   it('rejects trade involving a tile in a group with buildings', () => {
     let s = setup();
     s = giveOwnership(s, 0, [1, 3]);

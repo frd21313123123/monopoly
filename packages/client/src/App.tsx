@@ -83,5 +83,6 @@ function networkToGameApi(net: NetworkApi): GameApi {
     viewerPlayerId: net.yourPlayerId,
     isViewerControlling: true,
     mode: 'network',
+    disconnectedPlayerIds: net.disconnectedPlayerIds,
   };
 }

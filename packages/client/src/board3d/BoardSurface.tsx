@@ -10,10 +10,11 @@ import {
 
 interface BoardSurfaceProps {
   state?: GameState | undefined;
+  onTileHover?: ((index: number | null) => void) | undefined;
 }
 
 /** The board slab with all 40 tiles, color stripes, glyphs and buildings. */
-export function BoardSurface({ state }: BoardSurfaceProps) {
+export function BoardSurface({ state, onTileHover }: BoardSurfaceProps) {
   return (
     <group>
       {/* Base slab */}
@@ -23,7 +24,7 @@ export function BoardSurface({ state }: BoardSurfaceProps) {
       </mesh>
 
       {BOARD.map((tile) => (
-        <TileMesh key={tile.index} tile={tile} />
+        <TileMesh key={tile.index} tile={tile} onTileHover={onTileHover} />
       ))}
 
       {state && <Buildings3D state={state} />}
@@ -34,7 +35,13 @@ export function BoardSurface({ state }: BoardSurfaceProps) {
 
 const TILE_TOP = SURFACE_Y + 0.001;
 
-function TileMesh({ tile }: { tile: Tile }) {
+function TileMesh({
+  tile,
+  onTileHover,
+}: {
+  tile: Tile;
+  onTileHover?: ((index: number | null) => void) | undefined;
+}) {
   const w = tileWorld(tile.index);
   const isCorner = w.side === 'corner';
   const inset = 0.012;
@@ -44,7 +51,18 @@ function TileMesh({ tile }: { tile: Tile }) {
   return (
     <group position={[w.x, 0, w.z]} rotation={[0, w.rotY, 0]}>
       {/* Tile face */}
-      <mesh position={[0, TILE_TOP, 0]} receiveShadow>
+      <mesh
+        position={[0, TILE_TOP, 0]}
+        receiveShadow
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          onTileHover?.(tile.index);
+        }}
+        onPointerOut={(e) => {
+          e.stopPropagation();
+          onTileHover?.(null);
+        }}
+      >
         <boxGeometry args={[tileW, 0.02, tileD]} />
         <meshStandardMaterial color="#fbf8ef" roughness={0.6} />
       </mesh>

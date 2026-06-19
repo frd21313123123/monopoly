@@ -41,7 +41,9 @@ export function Sidebar({ api }: SidebarProps) {
     !finished &&
     !state.pendingPurchase &&
     !state.pendingAuction &&
+    !state.pendingOffer &&
     !state.pendingTrade &&
+    !state.pendingDebt &&
     viewer &&
     !viewer.bankrupt;
 
@@ -158,7 +160,13 @@ export function Sidebar({ api }: SidebarProps) {
         <h3 className="sidebar__heading">Игроки</h3>
         <ul className="sidebar__players">
           {state.players.map((p, i) => (
-            <PlayerRow key={p.id} player={p} isCurrent={!finished && i === state.currentPlayerIndex} isYou={api.mode === 'network' && p.id === api.viewerPlayerId} />
+            <PlayerRow
+              key={p.id}
+              player={p}
+              isCurrent={!finished && i === state.currentPlayerIndex}
+              isYou={api.mode === 'network' && p.id === api.viewerPlayerId}
+              isOffline={(api.disconnectedPlayerIds ?? []).includes(p.id)}
+            />
           ))}
         </ul>
       </section>
@@ -430,12 +438,13 @@ function MyCardsModal({ player, onClose }: { player: Player; onClose: () => void
   );
 }
 
-function PlayerRow({ player, isCurrent, isYou }: { player: Player; isCurrent: boolean; isYou?: boolean }) {
+function PlayerRow({ player, isCurrent, isYou, isOffline }: { player: Player; isCurrent: boolean; isYou?: boolean; isOffline?: boolean }) {
   const token = getToken(player.tokenId);
   const classes = [
     'sidebar__player',
     isCurrent && 'sidebar__player--current',
     player.bankrupt && 'sidebar__player--bankrupt',
+    isOffline && 'sidebar__player--offline',
   ]
     .filter(Boolean)
     .join(' ');
@@ -445,6 +454,7 @@ function PlayerRow({ player, isCurrent, isYou }: { player: Player; isCurrent: bo
       <span className="sidebar__player-name">
         {player.name}
         {isYou && <span className="sidebar__player-you"> (вы)</span>}
+        {isOffline && <span className="sidebar__player-offline"> (отключён)</span>}
         {player.jailFreeCards > 0 && (
           <span className="sidebar__player-jailcard" title="Карта освобождения из тюрьмы">
             {' '}🎟️{player.jailFreeCards > 1 ? `×${player.jailFreeCards}` : ''}

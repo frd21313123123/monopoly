@@ -553,6 +553,40 @@ describe('go to jail', () => {
   });
 });
 
+describe('lastMove animation path', () => {
+  it('records dice tile then jail when landing on GO_TO_JAIL', () => {
+    const s = landAt(startedGame(), { target: 30, playerIndex: 0, sum: 10 });
+    expect(s.lastMove).not.toBeNull();
+    expect(s.lastMove!.playerId).toBe(s.players[0]!.id);
+    // First the dice destination (30), then the redirect to jail (10).
+    expect(s.lastMove!.path).toEqual([30, 10]);
+  });
+
+  it('bumps seq and records the dice tile on an ordinary move', () => {
+    const before = startedGame();
+    const s = landAt(before, { target: 5, playerIndex: 0, sum: 5 });
+    expect(s.lastMove!.path).toEqual([5]);
+    expect(s.lastMove!.seq).toBe((before.lastMove?.seq ?? 0) + 1);
+  });
+});
+
+describe('turn/skip', () => {
+  it('advances the turn past the current player', () => {
+    const s = reduce(startedGame(), { type: 'turn/skip' });
+    expect(s.currentPlayerIndex).toBe(1);
+    expect(s.pendingEndTurn).toBe(false);
+    expect(s.lastRoll).toBeNull();
+  });
+
+  it('abandons an open purchase prompt and still advances', () => {
+    const landed = landAt(startedGame(), { target: 5, playerIndex: 0 });
+    expect(landed.pendingPurchase).not.toBeNull();
+    const s = reduce(landed, { type: 'turn/skip' });
+    expect(s.pendingPurchase).toBeNull();
+    expect(s.currentPlayerIndex).toBe(1);
+  });
+});
+
 describe('full turn flow', () => {
   it('hot-seat: 2 players buy and switch turns', () => {
     let s = startedGame();

@@ -4,15 +4,20 @@ import { colorStripe, tileLayout, type TileLayout } from './layout.js';
 
 interface TileProps {
   tile: TileData;
+  onHover?: (index: number | null) => void;
 }
 
-export function Tile({ tile }: TileProps) {
+export function Tile({ tile, onHover }: TileProps) {
   const layout = tileLayout(tile.index);
   const cx = layout.x + layout.width / 2;
   const cy = layout.y + layout.height / 2;
 
   return (
-    <g>
+    <g
+      style={{ cursor: 'help' }}
+      onMouseEnter={() => onHover?.(tile.index)}
+      onMouseLeave={() => onHover?.(null)}
+    >
       <rect
         x={layout.x}
         y={layout.y}

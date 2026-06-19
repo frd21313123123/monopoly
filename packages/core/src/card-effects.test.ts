@@ -38,6 +38,10 @@ function makeCtx(diceSum = 7): CardEffectContext & {
       }),
     }),
     appendLog: (state, entries) => ({ ...state, log: [...state.log, ...entries] }),
+    addWaypoint: (state, tileIndex) =>
+      state.lastMove
+        ? { ...state, lastMove: { ...state.lastMove, path: [...state.lastMove.path, tileIndex] } }
+        : state,
   };
 }
 
@@ -135,6 +139,16 @@ describe('applyCardEffect — movement', () => {
     const next = applyCardEffect(state, 'a', { kind: 'moveToNearestStation', payDouble: true }, ctx);
     expect(next.players[0]!.position).toBe(15); // nearest station ahead of 7
     expect(ctx.landing).toHaveBeenCalledWith(expect.anything(), 'a', 15, 7, 2, false);
+  });
+
+  it('records the destination as an animation waypoint', () => {
+    const ctx = makeCtx();
+    const state = withPlayers([player('a', { position: 7 })], {
+      lastMove: { playerId: 'a', path: [7], seq: 1 },
+    });
+    const next = applyCardEffect(state, 'a', { kind: 'moveToNearestStation', payDouble: false }, ctx);
+    // The dice tile (7) plus the card redirect (15) so the client animates the leg.
+    expect(next.lastMove!.path).toEqual([7, 15]);
   });
 
   it('moveToNearestUtility forces the 10x rule', () => {

@@ -8,6 +8,8 @@ import { BoardSurface } from './BoardSurface.js';
 import { Tokens3D } from './Tokens3D.js';
 import { Dice3D } from './Dice3D.js';
 import { Cards3D } from './Cards3D.js';
+import { CardTooltip } from '../game/CardTooltip.js';
+import { tipTransform, type TipPos } from '../board/Board.js';
 
 interface Board3DProps {
   state?: GameState | undefined;
@@ -18,11 +20,19 @@ interface Board3DProps {
 export function Board3D({ state, currentPlayerId = null }: Board3DProps) {
   // Target rotation of the table, in 90°-ish steps driven by the arrow buttons.
   const [targetAngle, setTargetAngle] = useState(0);
+  const [hover, setHover] = useState<number | null>(null);
+  const [pos, setPos] = useState<TipPos>({ x: 0, y: 0, w: 0, h: 0 });
 
   const rotate = (dir: -1 | 1) => setTargetAngle((a) => a + (dir * Math.PI) / 4);
 
   return (
-    <div className="board3d">
+    <div
+      className="board3d"
+      onPointerMove={(e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        setPos({ x: e.clientX - r.left, y: e.clientY - r.top, w: r.width, h: r.height });
+      }}
+    >
       <Canvas
         className="board3d__canvas"
         shadows
@@ -48,12 +58,13 @@ export function Board3D({ state, currentPlayerId = null }: Board3DProps) {
           shadow-camera-bottom={-BOARD_WORLD}
         />
         <RotatingTable targetAngle={targetAngle}>
-          <BoardSurface state={state} />
+          <BoardSurface state={state} onTileHover={setHover} />
           {state && (
             <Tokens3D
               players={state.players}
               currentPlayerId={currentPlayerId}
               rollSeq={state.rollSeq}
+              lastMove={state.lastMove}
             />
           )}
           <Dice3D roll={state?.lastRoll ?? null} rollSeq={state?.rollSeq ?? 0} />
@@ -70,6 +81,12 @@ export function Board3D({ state, currentPlayerId = null }: Board3DProps) {
           maxZoom={120}
         />
       </Canvas>
+
+      {state && hover !== null && (
+        <div className="card-tip-anchor" style={{ left: pos.x, top: pos.y, transform: tipTransform(pos) }}>
+          <CardTooltip state={state} tileIndex={hover} />
+        </div>
+      )}
 
       <div className="board3d__rotate">
         <button

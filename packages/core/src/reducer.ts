@@ -63,6 +63,8 @@ export function reduce(state: GameState, action: Action): GameState {
       return offerDecline(state);
     case 'turn/end':
       return endTurn(state);
+    case 'turn/skip':
+      return skipTurn(state);
     case 'manage/buyHouse':
       return buyHouse(state, action.tileIndex);
     case 'manage/sellHouse':
@@ -91,6 +93,8 @@ export function reduce(state: GameState, action: Action): GameState {
       return tradeAccept(state);
     case 'trade/decline':
       return tradeDecline(state);
+    case 'trade/cancel':
+      return tradeCancel(state);
   }
 }
 
@@ -342,6 +346,27 @@ function tradeDecline(state: GameState): GameState {
   ]);
 }
 
+/**
+ * Withdraws a pending proposal (proposer changed their mind, or the recipient
+ * went silent/disconnected and is blocking everyone). Clearing `pendingTrade`
+ * always unblocks trading and lets the current player end their turn, so a
+ * stalled proposal can never wedge the game.
+ */
+function tradeCancel(state: GameState): GameState {
+  const trade = state.pendingTrade;
+  if (!trade) return state;
+  const from = state.players.find((p) => p.id === trade.fromPlayerId);
+  const to = state.players.find((p) => p.id === trade.toPlayerId);
+  return appendLogEntries({ ...state, pendingTrade: null }, [
+    {
+      turn: state.turn,
+      playerId: trade.fromPlayerId,
+      messageKey: 'log.tradeCancelled',
+      params: { from: from?.name ?? trade.fromPlayerId, to: to?.name ?? trade.toPlayerId },
+    },
+  ]);
+}
+
 function buyHouse(state: GameState, tileIndex: TileIndex): GameState {
   if (state.phase !== 'playing') return state;
   if (state.pendingDebt) return state;
@@ -568,6 +593,7 @@ function moveAfterJail(state: GameState, playerId: string, sum: number): GameSta
     money: player.money + (passedGo ? GO_BONUS : 0),
   };
   let next: GameState = { ...state, players: replaceAt(state.players, idx, moved) };
+  next = addWaypoint(beginMove(next, playerId), newPos);
   if (passedGo) {
     next = appendLogEntries(next, [
       { turn: next.turn, playerId, messageKey: 'log.passedGo', params: { name: player.name, bonus: GO_BONUS } },
@@ -674,7 +700,7 @@ function rollAndMove(state: GameState): GameState {
       inJail: true,
       jailTurns: 0,
     };
-    const jailedState: GameState = {
+    let jailedState: GameState = {
       ...state,
       players: replaceAt(state.players, state.currentPlayerIndex, jailed),
       rngState: nextRngState,
@@ -683,6 +709,7 @@ function rollAndMove(state: GameState): GameState {
       doublesThisTurn: 0,
       pendingEndTurn: true,
     };
+    jailedState = addWaypoint(beginMove(jailedState, current.id), JAIL_INDEX);
     return appendLogEntries(jailedState, [
       {
         turn: state.turn,
@@ -708,6 +735,8 @@ function rollAndMove(state: GameState): GameState {
     doublesThisTurn: roll.isDouble ? state.doublesThisTurn + 1 : 0,
     pendingEndTurn: false,
   };
+
+  next = addWaypoint(beginMove(next, current.id), newPos);
 
   next = appendLogEntries(next, [
     {
@@ -828,6 +857,7 @@ function processLanding(
         players: replaceAt(state.players, idx, updated),
         doublesThisTurn: 0,
       };
+      next = addWaypoint(next, JAIL_INDEX);
       next = appendLogEntries(next, [
         {
           turn: state.turn,
@@ -876,6 +906,7 @@ function drawCard(
     landingHandler: processLanding,
     payHandler: payOrBankrupt,
     appendLog: appendLogEntries,
+    addWaypoint,
   };
   next = applyCardEffect(next, playerId, card.effect, ctx);
 
@@ -1084,6 +1115,26 @@ function endTurn(state: GameState): GameState {
   };
 }
 
+/**
+ * Force the current player's turn to pass. Used by the authoritative server when
+ * a disconnected player's reconnect grace expires, so the game never wedges on a
+ * player who can't act. Abandons any of their in-flight prompts, then advances
+ * the turn via the normal `endTurn` (which skips bankrupt players and wraps the
+ * round). Clients can't submit this directly (see `authorize.ts`).
+ */
+function skipTurn(state: GameState): GameState {
+  if (state.phase !== 'playing') return state;
+  return endTurn({
+    ...state,
+    pendingPurchase: null,
+    pendingOffer: null,
+    pendingAuction: null,
+    pendingTrade: null,
+    pendingDebt: null,
+    pendingEndTurn: true,
+  });
+}
+
 function payOrBankrupt(
   state: GameState,
   payerId: string,
@@ -1203,6 +1254,17 @@ function nextPlayerId(state: GameState): string {
 
 function replaceAt<T>(arr: readonly T[], index: number, value: T): readonly T[] {
   return arr.map((v, i) => (i === index ? value : v));
+}
+
+/** Start recording a fresh movement path for the client animation. */
+function beginMove(state: GameState, playerId: string): GameState {
+  return { ...state, lastMove: { playerId, path: [], seq: (state.lastMove?.seq ?? 0) + 1 } };
+}
+
+/** Append a waypoint to the in-progress movement path (no-op if none started). */
+function addWaypoint(state: GameState, tileIndex: TileIndex): GameState {
+  if (!state.lastMove) return state;
+  return { ...state, lastMove: { ...state.lastMove, path: [...state.lastMove.path, tileIndex] } };
 }
 
 function appendLog(log: readonly LogEntry[], ...entries: LogEntry[]): readonly LogEntry[] {

@@ -9,6 +9,8 @@ export interface GameApi {
   /** Whether this client is the controlling agent for the viewer (always true in hot-seat). */
   isViewerControlling: boolean;
   mode: 'local' | 'network';
+  /** Player ids currently disconnected (network only); used to show a status badge. */
+  disconnectedPlayerIds?: readonly string[];
 }
 
 export function useGame(seed?: number): GameApi {

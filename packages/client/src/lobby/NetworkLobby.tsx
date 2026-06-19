@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { MIN_PLAYERS, t, TOKENS, type GameState } from '@monopoly/core';
-import { TokenPicker } from './TokenPicker.js';
+import { MIN_PLAYERS, playerColor, t, TOKENS, type GameState } from '@monopoly/core';
+import { ColorPicker, TokenPicker } from './TokenPicker.js';
 import type { NetworkApi } from '../game/useNetworkGame.js';
 
 interface NetworkLobbyProps {
@@ -18,6 +18,7 @@ function NetworkStart({ api }: NetworkLobbyProps) {
   const [mode, setMode] = useState<'create' | 'join'>('create');
   const [name, setName] = useState('');
   const [tokenId, setTokenId] = useState<string | null>(null);
+  const [color, setColor] = useState<string | null>(null);
   const [joinId, setJoinId] = useState('');
 
   const canSubmit =
@@ -27,10 +28,11 @@ function NetworkStart({ api }: NetworkLobbyProps) {
 
   const submit = () => {
     if (!canSubmit || !tokenId) return;
+    const wanted = color ?? undefined;
     if (mode === 'create') {
-      api.createRoom(name.trim(), tokenId);
+      api.createRoom(name.trim(), tokenId, wanted);
     } else {
-      api.joinRoom(joinId.trim().toUpperCase(), name.trim(), tokenId);
+      api.joinRoom(joinId.trim().toUpperCase(), name.trim(), tokenId, wanted);
     }
   };
 
@@ -81,6 +83,12 @@ function NetworkStart({ api }: NetworkLobbyProps) {
         <div className="lobby__token-section">
           <div className="lobby__sublabel">{t('lobby.pickToken')}</div>
           <TokenPicker selected={tokenId} taken={new Set()} onSelect={setTokenId} />
+        </div>
+
+        <div className="lobby__token-section">
+          <div className="lobby__sublabel">{t('lobby.pickColor')}</div>
+          <ColorPicker selected={color} onSelect={setColor} />
+          <p className="lobby__hint">Если цвет занят, сервер подберёт ближайший свободный.</p>
         </div>
 
         <button type="button" className="lobby__add" onClick={submit} disabled={!canSubmit}>
@@ -158,7 +166,7 @@ function PlayerListNet({ state, myId }: { state: GameState; myId: string | null 
           <li
             key={p.id}
             className="lobby__player"
-            style={{ borderLeftColor: token?.color }}
+            style={{ borderLeftColor: playerColor(p) }}
           >
             <span className="lobby__player-symbol">{token?.symbol}</span>
             <span className="lobby__player-name">

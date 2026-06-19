@@ -7,6 +7,7 @@ import {
   type GameState,
 } from '@monopoly/core';
 import type { GameApi } from './useGame.js';
+import { CardTooltip } from './CardTooltip.js';
 
 interface AuctionModalProps {
   api: GameApi;
@@ -31,7 +32,11 @@ export function AuctionModal({ api }: AuctionModalProps) {
 
   return (
     <div className="modal-backdrop">
-      <div className="modal">
+      <div className="modal modal--wide auction-modal">
+        <div className="auction-modal__card">
+          <CardTooltip state={api.state} tileIndex={auction.tileIndex} asCard />
+        </div>
+        <div className="auction-modal__main">
         <h2 className="modal__title">{t('game.auctionFor', { tile: tile.nameKey })}</h2>
         <div className="modal__row">
           <span>{t('game.auctionCurrent', {
@@ -92,6 +97,7 @@ export function AuctionModal({ api }: AuctionModalProps) {
         {turnPlayer && !canAct && (
           <p className="sidebar__waiting">Ждём ход игрока {turnPlayer.name}…</p>
         )}
+        </div>
       </div>
     </div>
   );

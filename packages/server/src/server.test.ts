@@ -267,3 +267,75 @@ describe('disconnect & leave', () => {
     }
   });
 });
+
+/** Create a room, add a guest, and start the game (host = current player). */
+async function startedTwoPlayer(): Promise<{
+  host: TestClient;
+  guest: TestClient;
+  roomId: string;
+  hostId: string;
+  guestId: string;
+}> {
+  const host = await connect();
+  host.send({ type: 'createRoom', hostName: 'Host', hostTokenId: 'hat' });
+  const created = await host.next();
+  if (created.type !== 'roomCreated') throw new Error('unexpected');
+  const guest = await connect();
+  guest.send({ type: 'joinRoom', roomId: created.roomId, playerName: 'G', tokenId: 'car' });
+  const joined = await guest.next();
+  if (joined.type !== 'roomJoined') throw new Error('unexpected');
+  await host.next(); // host broadcast
+  host.send({ type: 'submitAction', action: { type: 'lobby/startGame' } });
+  await host.next(); // stateUpdate (started)
+  await guest.next();
+  return {
+    host,
+    guest,
+    roomId: created.roomId,
+    hostId: created.yourPlayerId,
+    guestId: joined.yourPlayerId,
+  };
+}
+
+describe('reconnect', () => {
+  it('lets a dropped player reclaim their slot and keep acting', async () => {
+    const { host, guest, roomId, hostId } = await startedTwoPlayer();
+
+    host.close(); // current player drops mid-game
+    const drop = await guest.next();
+    expect(drop.type).toBe('playerDisconnected');
+
+    // A fresh socket reclaims the host slot by room code + player id.
+    const back = await connect();
+    back.send({ type: 'rejoinRoom', roomId, playerId: hostId });
+    const rejoined = await back.next();
+    expect(rejoined.type).toBe('roomJoined');
+    if (rejoined.type === 'roomJoined') {
+      expect(rejoined.yourPlayerId).toBe(hostId);
+      expect(rejoined.state.phase).toBe('playing');
+    }
+    expect((await guest.next()).type).toBe('playerReconnected');
+
+    // The reclaimed player is authorized again — the turn is no longer wedged.
+    back.send({ type: 'submitAction', action: { type: 'turn/rollAndMove' } });
+    expect((await back.next()).type).toBe('stateUpdate');
+  });
+
+  it('auto-skips the turn once the reconnect grace expires', async () => {
+    process.env.MONOPOLY_GRACE_MS = '40';
+    try {
+      const { host, guest } = await startedTwoPlayer();
+      host.close(); // current player (index 0) drops and never returns
+
+      // First the disconnect notice, then — after the grace — the skipped turn.
+      expect((await guest.next()).type).toBe('playerDisconnected');
+      const skipped = await guest.next(1000);
+      expect(skipped.type).toBe('stateUpdate');
+      if (skipped.type === 'stateUpdate') {
+        expect(skipped.state.currentPlayerIndex).toBe(1);
+      }
+    } finally {
+      delete process.env.MONOPOLY_GRACE_MS;
+    }
+  });
+});
