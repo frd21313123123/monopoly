@@ -128,7 +128,7 @@ describe('lobby', () => {
       type: 'lobby/addPlayer',
       name: 'A',
       tokenId: 'hat',
-      color: TOKEN_COLORS[0],
+      color: TOKEN_COLORS[0]!,
     });
     expect(s.players[0]!.color).toBe(TOKEN_COLORS[0]);
   });
