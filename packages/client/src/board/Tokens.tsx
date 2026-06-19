@@ -1,20 +1,23 @@
 import { useEffect, useRef } from 'react';
-import { BOARD_SIZE, getToken, playerColor, type Player, type TileIndex } from '@monopoly/core';
+import { BOARD_SIZE, getToken, playerColor, type GameState, type Player, type TileIndex } from '@monopoly/core';
 import { tileLayout } from './layout.js';
 import { DICE_ROLL_MS_2D, useMoveGate } from '../anim.js';
 import { playLand, playStep } from '../audio/sounds.js';
+
+type LastMove = GameState['lastMove'];
 
 interface TokensProps {
   players: readonly Player[];
   currentPlayerId: string | null;
   rollSeq: number;
+  lastMove: LastMove;
 }
 
 const RADIUS = 18;
 const STEP_MS = 180; // walk one tile
 const GLIDE_MS = 650; // direct jump (jail / advance to GO from afar)
 
-export function Tokens({ players, currentPlayerId, rollSeq }: TokensProps) {
+export function Tokens({ players, currentPlayerId, rollSeq, lastMove }: TokensProps) {
   const byTile = groupByPosition(players);
   const slotOf = new Map<string, { slot: number; slotCount: number }>();
   for (const occupants of byTile.values()) {
@@ -34,6 +37,7 @@ export function Tokens({ players, currentPlayerId, rollSeq }: TokensProps) {
             slotCount={s.slotCount}
             isCurrent={player.id === currentPlayerId}
             moveGate={moveGate}
+            lastMove={lastMove}
           />
         );
       })}
@@ -47,9 +51,31 @@ interface TokenMarkerProps {
   slotCount: number;
   isCurrent: boolean;
   moveGate: React.MutableRefObject<number>;
+  lastMove: LastMove;
 }
 
-function TokenMarker({ player, slot, slotCount, isCurrent, moveGate }: TokenMarkerProps) {
+interface Segment {
+  tile: number;
+  glide: boolean;
+}
+
+/**
+ * Flatten a redirected move (e.g. dice → "Go To Jail" → jail) into a single list
+ * of segments, each tagged walk-or-glide, by chaining `buildPath` across every
+ * waypoint. Falls back to a straight path when there are no waypoints.
+ */
+function flattenPath(from: number, waypoints: readonly number[]): Segment[] {
+  const out: Segment[] = [];
+  let prev = from;
+  for (const w of waypoints) {
+    const { steps, glide } = buildPath(prev, w);
+    for (const tile of steps) out.push({ tile, glide });
+    prev = w;
+  }
+  return out;
+}
+
+function TokenMarker({ player, slot, slotCount, isCurrent, moveGate, lastMove }: TokenMarkerProps) {
   const gRef = useRef<SVGGElement>(null);
   const rafRef = useRef<number>(0);
   const logicalTile = useRef<number>(player.position);
@@ -58,13 +84,27 @@ function TokenMarker({ player, slot, slotCount, isCurrent, moveGate }: TokenMark
   // Latest slot info, so a segment ending mid-flight lands in the right slot.
   const slotRef = useRef({ slot, slotCount });
   slotRef.current = { slot, slotCount };
+  const prevMoveSeq = useRef<number | null>(lastMove?.seq ?? null);
 
   useEffect(() => {
     const target = player.position;
     const last = logicalTile.current;
+    const moveSeq = lastMove?.seq ?? null;
+    const seqChanged = moveSeq !== null && moveSeq !== prevMoveSeq.current;
+    prevMoveSeq.current = moveSeq;
+    const isMover = seqChanged && lastMove?.playerId === player.id;
+
+    // Build the walk segments: the recorded multi-leg path when this pawn is the
+    // one that moved, otherwise a straight path to its (changed) tile.
+    const segments = isMover && lastMove && lastMove.path.length > 0
+      ? flattenPath(last, lastMove.path)
+      : target !== last
+        ? flattenPath(last, [target])
+        : [];
+
     logicalTile.current = target;
 
-    if (target === last) {
+    if (segments.length === 0) {
       // No move — but the slot may have shifted (another token left/arrived).
       const p = finalPoint(target, slot, slotCount);
       posRef.current = p;
@@ -72,32 +112,30 @@ function TokenMarker({ player, slot, slotCount, isCurrent, moveGate }: TokenMark
       return;
     }
 
-    const { steps, glide } = buildPath(last, target);
-    if (steps.length === 0) return;
     cancelAnimationFrame(rafRef.current);
 
     let idx = 0;
     const runSegment = () => {
-      const tile = steps[idx]!;
-      const isLast = idx === steps.length - 1;
+      const seg = segments[idx]!;
+      const isLast = idx === segments.length - 1;
       const from = posRef.current;
       const to = isLast
-        ? finalPoint(tile, slotRef.current.slot, slotRef.current.slotCount)
-        : walkPoint(tile);
-      const dur = glide ? GLIDE_MS : STEP_MS;
+        ? finalPoint(seg.tile, slotRef.current.slot, slotRef.current.slotCount)
+        : walkPoint(seg.tile);
+      const dur = seg.glide ? GLIDE_MS : STEP_MS;
       const start = performance.now();
-      if (!glide) playStep();
+      if (!seg.glide) playStep();
 
       const tick = (now: number) => {
         const tnorm = Math.min(1, (now - start) / dur);
-        const eased = glide ? smooth(tnorm) : tnorm;
+        const eased = seg.glide ? smooth(tnorm) : tnorm;
         const p = { x: from.x + (to.x - from.x) * eased, y: from.y + (to.y - from.y) * eased };
         posRef.current = p;
-        const hop = glide ? 0 : Math.sin(tnorm * Math.PI) * 10;
+        const hop = seg.glide ? 0 : Math.sin(tnorm * Math.PI) * 10;
         applyTransform(gRef.current, p, hop);
         if (tnorm < 1) {
           rafRef.current = requestAnimationFrame(tick);
-        } else if (++idx < steps.length) {
+        } else if (++idx < segments.length) {
           runSegment();
         } else {
           playLand();
@@ -116,7 +154,7 @@ function TokenMarker({ player, slot, slotCount, isCurrent, moveGate }: TokenMark
     };
     waitForGate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [player.position, slot, slotCount]);
+  }, [player.position, slot, slotCount, lastMove?.seq]);
 
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 

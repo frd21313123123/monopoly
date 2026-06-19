@@ -24,6 +24,9 @@ export interface CardEffectContext {
   landingHandler: LandingHandler;
   payHandler: PayHandler;
   appendLog: (state: GameState, entries: readonly LogEntry[]) => GameState;
+  /** Records a waypoint on the active movement path so the client animates the
+   *  card-driven move leg by leg instead of teleporting to the final tile. */
+  addWaypoint: (state: GameState, tileIndex: TileIndex) => GameState;
 }
 
 export function applyCardEffect(
@@ -61,11 +64,14 @@ export function applyCardEffect(
       return payToEach(state, playerId, effect.amount, ctx);
     case 'goToJail': {
       const updated: Player = { ...player, position: JAIL_INDEX, inJail: true, jailTurns: 0 };
-      return {
-        ...state,
-        players: replaceAt(state.players, playerIdx, updated),
-        doublesThisTurn: 0,
-      };
+      return ctx.addWaypoint(
+        {
+          ...state,
+          players: replaceAt(state.players, playerIdx, updated),
+          doublesThisTurn: 0,
+        },
+        JAIL_INDEX,
+      );
     }
     case 'getOutOfJailFree': {
       const updated: Player = { ...player, jailFreeCards: player.jailFreeCards + 1 };
@@ -98,6 +104,7 @@ function moveTo(
     money: player.money + (passedGo ? GO_BONUS : 0),
   };
   let next: GameState = { ...state, players: replaceAt(state.players, playerIdx, updated) };
+  next = ctx.addWaypoint(next, target);
   if (passedGo) {
     next = ctx.appendLog(next, [
       { turn: next.turn, playerId, messageKey: 'log.passedGo', params: { name: player.name, bonus: GO_BONUS } },

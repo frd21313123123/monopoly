@@ -12,6 +12,8 @@ import type { Action, GameState } from '@monopoly/core';
  *   carry their own playerId field but must match the submitter.
  * - trade/propose — only the from-player.
  * - trade/accept, trade/decline — only the to-player.
+ * - trade/cancel — the proposing player or the current player (so a stalled
+ *   proposal can always be cleared).
  * - offer/accept, offer/decline — only the offered-to player.
  */
 export function canSubmitAction(state: GameState, playerId: string, action: Action): boolean {
@@ -53,8 +55,19 @@ export function canSubmitAction(state: GameState, playerId: string, action: Acti
     case 'trade/decline':
       return playerId === state.pendingTrade?.toPlayerId;
 
+    case 'trade/cancel':
+      return (
+        playerId === state.pendingTrade?.fromPlayerId ||
+        playerId === state.players[state.currentPlayerIndex]?.id
+      );
+
     case 'offer/accept':
     case 'offer/decline':
       return playerId === state.pendingOffer?.toPlayerId;
+
+    // System-only: the server dispatches this itself when a disconnected
+    // player's reconnect grace expires. No client may submit it.
+    case 'turn/skip':
+      return false;
   }
 }

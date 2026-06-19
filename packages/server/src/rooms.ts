@@ -10,6 +10,12 @@ export interface Room {
   id: string;
   clients: Map<WebSocket, string>;
   state: GameState;
+  /** Player ids whose socket has dropped (shown as "disconnected" to others).
+   *  Cleared when the player rejoins. */
+  disconnected: Set<string>;
+  /** Player ids whose reconnect grace has expired — their turn is auto-skipped
+   *  until they come back. Subset of `disconnected`. */
+  skippable: Set<string>;
 }
 
 const rooms = new Map<string, Room>();
@@ -33,6 +39,8 @@ export function createRoom(seed?: number): Room {
     id,
     clients: new Map(),
     state: initialState(seed),
+    disconnected: new Set(),
+    skippable: new Set(),
   };
   rooms.set(id, room);
   return room;

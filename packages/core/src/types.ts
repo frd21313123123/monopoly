@@ -160,6 +160,15 @@ export interface GameState {
   lastRoll: DiceRoll | null;
   /** Monotonic counter bumped on every real dice roll. UI animates off this, not the lastRoll reference (which changes on every network state update). */
   rollSeq: number;
+  /**
+   * Waypoints of the most recent move, so the client can animate a redirected
+   * move leg by leg (dice → "Go To Jail" → jail; Chance → nearest station)
+   * instead of teleporting straight to the final tile. `path` excludes the
+   * starting tile and includes every intermediate stop and the final tile.
+   * `seq` bumps on each new move — the UI triggers animation off it (like
+   * `rollSeq`), not the object reference, which is fresh on every network update.
+   */
+  lastMove: { playerId: string; path: readonly TileIndex[]; seq: number } | null;
   doublesThisTurn: number;
   pendingEndTurn: boolean;
   pendingPurchase: PendingPurchase | null;
@@ -208,6 +217,7 @@ export type Action =
   | { type: 'offer/accept' }
   | { type: 'offer/decline' }
   | { type: 'turn/end' }
+  | { type: 'turn/skip' }
   | { type: 'manage/buyHouse'; tileIndex: TileIndex }
   | { type: 'manage/sellHouse'; tileIndex: TileIndex }
   | { type: 'manage/mortgage'; tileIndex: TileIndex }
@@ -227,4 +237,5 @@ export type Action =
       toOffer: TradeBundle;
     }
   | { type: 'trade/accept' }
-  | { type: 'trade/decline' };
+  | { type: 'trade/decline' }
+  | { type: 'trade/cancel' };

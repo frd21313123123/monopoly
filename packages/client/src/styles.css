@@ -147,6 +147,16 @@ button {
   font-weight: 600;
 }
 
+.sidebar__player-offline {
+  color: #e88a3a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sidebar__player--offline {
+  opacity: 0.6;
+}
+
 .lobby__you {
   color: #fff200;
   font-weight: 600;
@@ -396,7 +406,7 @@ button {
 .game__view-toggle {
   position: absolute;
   top: 8px;
-  left: 8px;
+  right: 8px;
   z-index: 5;
   padding: 6px 14px;
   font-size: 14px;
@@ -411,6 +421,84 @@ button {
 
 .game__view-toggle:hover {
   background: #fff84d;
+}
+
+/* Player roster pinned to the top-left of the board. */
+.player-bar {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 6;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 46%;
+}
+
+.player-bar__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: #f3f1e8;
+  background: rgba(26, 29, 34, 0.82);
+  border-left: 4px solid #888;
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+}
+
+.player-bar__item--current {
+  background: rgba(40, 46, 56, 0.95);
+  box-shadow: 0 0 0 2px #ffe066, 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+
+.player-bar__item--bankrupt {
+  opacity: 0.5;
+}
+
+.player-bar__item--bankrupt .player-bar__name {
+  text-decoration: line-through;
+}
+
+.player-bar__symbol {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.player-bar__token {
+  font-size: 14px;
+}
+
+.player-bar__name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
+}
+
+.player-bar__you {
+  color: #8aff8a;
+  font-weight: 400;
+}
+
+.player-bar__offline {
+  color: #e88a3a;
+  font-weight: 600;
+}
+
+.player-bar__item--offline {
+  opacity: 0.6;
+}
+
+.player-bar__money {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
 }
 
 .board3d {
@@ -913,6 +1001,27 @@ button {
   width: 720px;
 }
 
+.auction-modal {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.auction-modal__card {
+  flex: 0 0 auto;
+}
+
+.auction-modal__main {
+  flex: 1 1 auto;
+  min-width: 280px;
+}
+
+@media (max-width: 620px) {
+  .auction-modal {
+    flex-direction: column;
+  }
+}
+
 .offer-form__field {
   display: flex;
   flex-direction: column;
@@ -1163,4 +1272,138 @@ button {
   .game__sidebar {
     overflow-y: visible;
   }
+}
+
+/* ---- Card hover tooltip (2D + 3D boards) ---------------------------------- */
+
+/* Positioned at the cursor; offset so it doesn't sit under the pointer.
+   pointer-events:none keeps it from stealing hover/closing instantly. */
+.card-tip-anchor {
+  position: absolute;
+  z-index: 30;
+  pointer-events: none;
+  max-width: calc(100% - 24px);
+}
+
+.card-tip {
+  width: 230px;
+  max-width: 100%;
+  background: #20242b;
+  color: #f3f1e8;
+  border: 1px solid #3a3f47;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.card-tip__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+/* Standalone title-deed card (auction): wider, with a full-width colored band. */
+.card-tip--deed {
+  width: 248px;
+  overflow: hidden;
+}
+
+.card-tip__band {
+  margin: -10px -12px 10px;
+  padding: 14px 12px;
+  font-size: 16px;
+  font-weight: 800;
+  text-align: center;
+  letter-spacing: 0.4px;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.4);
+}
+
+.card-tip__swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  flex: 0 0 auto;
+}
+
+.card-tip__name {
+  flex: 1 1 auto;
+}
+
+.card-tip__note {
+  color: #c9c6ba;
+  margin-bottom: 6px;
+}
+
+.card-tip__owner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.card-tip__owner-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  flex: 0 0 auto;
+}
+
+.card-tip__mortgaged {
+  margin-left: auto;
+  color: #ff8a8a;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.card-tip__rents {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 6px;
+}
+
+.card-tip__rents td {
+  padding: 1px 0;
+}
+
+.card-tip__rent-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.card-tip__rent--active {
+  color: #ffe066;
+  font-weight: 700;
+}
+
+.card-tip__stats {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1px 8px;
+  border-top: 1px solid #3a3f47;
+  padding-top: 6px;
+}
+
+.card-tip__stat {
+  display: contents;
+}
+
+.card-tip__stat dt {
+  color: #c9c6ba;
+}
+
+.card-tip__stat dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }

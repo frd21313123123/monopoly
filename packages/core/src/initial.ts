@@ -12,6 +12,7 @@ export function initialState(seed: number = Date.now() >>> 0): GameState {
     rngState: seed >>> 0,
     lastRoll: null,
     rollSeq: 0,
+    lastMove: null,
     doublesThisTurn: 0,
     pendingEndTurn: false,
     pendingPurchase: null,
